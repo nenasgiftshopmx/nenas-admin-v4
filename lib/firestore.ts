@@ -81,7 +81,11 @@ export async function updateNota(
   
   if (data.abonos) {
     updateData.totalAbonado = data.abonos.reduce((sum, a) => sum + a.monto, 0);
-    updateData.saldo = (updateData.total || 0) - updateData.totalAbonado;
+    if (updateData.total === undefined) {
+      const notaActual = await getNota(id);
+      updateData.total = notaActual?.total ?? 0;
+    }
+    updateData.saldo = updateData.total - updateData.totalAbonado;
   }
   
   await updateDoc(docRef, updateData);
