@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { getNotas, calcularEstadoNota, tieneEntregasVencidas } from '@/lib/firestore';
 import { Nota } from '@/types';
+import Link from 'next/link';
 
 export default function DashboardPage() {
   const { user, usuarioData, loading } = useAuth();
@@ -92,7 +93,51 @@ export default function DashboardPage() {
     0
   );
 
-  const clientesUnicos = new Set(notas.map(n => n.clienteNombre.toLowerCase().trim())).size;
+  // Módulos del HUB
+  const modulos = [
+    {
+      titulo: 'Notas',
+      icono: '📋',
+      color: 'bg-blue-50 border-blue-200 hover:bg-blue-100',
+      href: '/dashboard/notas',
+      stats: `${notasActivas.length} activas`,
+    },
+    {
+      titulo: 'Clientes',
+      icono: '👥',
+      color: 'bg-green-50 border-green-200 hover:bg-green-100',
+      href: '/dashboard/clientes',
+      stats: `${new Set(notas.map(n => n.clienteNombre.toLowerCase().trim())).size} únicos`,
+    },
+    {
+      titulo: 'Productos',
+      icono: '🎁',
+      color: 'bg-purple-50 border-purple-200 hover:bg-purple-100',
+      href: '/dashboard/productos',
+      stats: 'Catálogo',
+    },
+    {
+      titulo: 'Calendario',
+      icono: '📅',
+      color: 'bg-orange-50 border-orange-200 hover:bg-orange-100',
+      href: '/dashboard/calendario',
+      stats: `${entregasHoy} hoy`,
+    },
+    {
+      titulo: 'Reportes',
+      icono: '📊',
+      color: 'bg-indigo-50 border-indigo-200 hover:bg-indigo-100',
+      href: '/dashboard/reportes',
+      stats: 'Análisis',
+    },
+    {
+      titulo: 'Impresión',
+      icono: '🖨️',
+      color: 'bg-red-50 border-red-200 hover:bg-red-100',
+      href: '/dashboard/impresion',
+      stats: 'Notas',
+    },
+  ];
 
   return (
     <div className="space-y-8 p-6 bg-gray-50 min-h-screen">
@@ -106,141 +151,81 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Métricas principales */}
+      {/* Métricas rápidas (4 cards) */}
       {loadingNotas ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map(i => (
-            <div key={i} className="h-32 bg-gray-200 rounded-lg animate-pulse"></div>
+            <div key={i} className="h-24 bg-gray-200 rounded-lg animate-pulse"></div>
           ))}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Urgentes */}
-          <div
-            onClick={() => router.push('/dashboard/notas')}
-            className="bg-white rounded-lg p-6 border-l-4 border-red-500 cursor-pointer hover:shadow-md transition-shadow"
-          >
-            <p className="text-gray-600 text-sm font-medium">Urgentes</p>
-            <p className="text-3xl font-bold text-red-600 mt-2">{urgentes.length}</p>
-            <p className="text-xs text-gray-500 mt-2">Requieren atención</p>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-5">
+            <p className="text-red-700 font-semibold text-2xl">{urgentes.length}</p>
+            <p className="text-red-600 text-sm font-medium">Urgentes</p>
           </div>
 
           {/* Por cobrar */}
-          <div
-            onClick={() => router.push('/dashboard/notas')}
-            className="bg-white rounded-lg p-6 border-l-4 border-orange-500 cursor-pointer hover:shadow-md transition-shadow"
-          >
-            <p className="text-gray-600 text-sm font-medium">Por Cobrar</p>
-            <p className="text-3xl font-bold text-orange-600 mt-2">
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-5">
+            <p className="text-orange-700 font-semibold text-2xl">
               ${totalPorCobrar.toLocaleString('es-MX')}
             </p>
-            <p className="text-xs text-gray-500 mt-2">{porCobrar.length} nota(s)</p>
+            <p className="text-orange-600 text-sm font-medium">Por Cobrar</p>
           </div>
 
           {/* Entregas hoy */}
-          <div
-            onClick={() => router.push('/dashboard/calendario')}
-            className="bg-white rounded-lg p-6 border-l-4 border-blue-500 cursor-pointer hover:shadow-md transition-shadow"
-          >
-            <p className="text-gray-600 text-sm font-medium">Entregas Hoy</p>
-            <p className="text-3xl font-bold text-blue-600 mt-2">{entregasHoy}</p>
-            <p className="text-xs text-gray-500 mt-2">Trabajos pendientes</p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-5">
+            <p className="text-blue-700 font-semibold text-2xl">{entregasHoy}</p>
+            <p className="text-blue-600 text-sm font-medium">Entregas Hoy</p>
           </div>
 
           {/* Cobrado hoy */}
-          <div className="bg-white rounded-lg p-6 border-l-4 border-green-500">
-            <p className="text-gray-600 text-sm font-medium">Cobrado Hoy</p>
-            <p className="text-3xl font-bold text-green-600 mt-2">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-5">
+            <p className="text-green-700 font-semibold text-2xl">
               ${cobradoHoy.toLocaleString('es-MX')}
             </p>
-            <p className="text-xs text-gray-500 mt-2">Abonos del día</p>
+            <p className="text-green-600 text-sm font-medium">Cobrado Hoy</p>
           </div>
         </div>
       )}
 
-      {/* Info secundaria */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-lg p-4 border border-gray-200">
-          <p className="text-gray-600 text-sm">Notas Activas</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{notasActivas.length}</p>
-        </div>
-        <div className="bg-white rounded-lg p-4 border border-gray-200">
-          <p className="text-gray-600 text-sm">Clientes Únicos</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{clientesUnicos}</p>
-        </div>
-        <div className="bg-white rounded-lg p-4 border border-gray-200">
-          <p className="text-gray-600 text-sm">Total Nota</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">
-            ${notasActivas.reduce((s, n) => s + n.total, 0).toLocaleString('es-MX')}
-          </p>
-        </div>
+      {/* MÓDULOS HUB (6 tarjetas grandes) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {modulos.map(modulo => (
+          <Link
+            key={modulo.titulo}
+            href={modulo.href}
+            className={`border-2 rounded-xl p-8 cursor-pointer transition-all hover:shadow-lg hover:scale-105 ${modulo.color}`}
+          >
+            <div className="text-5xl mb-4">{modulo.icono}</div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{modulo.titulo}</h2>
+            <p className="text-gray-600 text-sm">{modulo.stats}</p>
+          </Link>
+        ))}
       </div>
 
-      {/* Notas urgentes */}
+      {/* Sección de urgencias (si hay) */}
       {urgentes.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-          <h2 className="text-lg font-bold text-red-900 mb-4">🔴 Requieren Atención Ahora</h2>
+          <h2 className="text-lg font-bold text-red-900 mb-4">🔴 Requieren Atención</h2>
           <div className="space-y-2">
-            {urgentes.slice(0, 5).map(n => {
-              const saldo = n.total - (n.abonos?.reduce((s, a) => s + a.monto, 0) ?? 0);
-              return (
-                <div
-                  key={n.id}
-                  onClick={() => router.push(`/dashboard/notas/${n.id}`)}
-                  className="bg-white p-3 rounded cursor-pointer hover:bg-red-50 transition-colors border border-red-100"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-mono text-sm font-bold text-red-600">{n.folio}</p>
-                      <p className="text-sm text-gray-900">{n.clienteNombre}</p>
-                    </div>
-                    {saldo > 0 && (
-                      <p className="text-sm font-bold text-red-600">
-                        ${saldo.toLocaleString('es-MX')}
-                      </p>
-                    )}
+            {urgentes.slice(0, 3).map(n => (
+              <div
+                key={n.id}
+                onClick={() => router.push(`/dashboard/notas/${n.id}`)}
+                className="bg-white p-3 rounded cursor-pointer hover:bg-red-50 transition-colors border border-red-100"
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-mono text-sm font-bold text-red-600">{n.folio}</p>
+                    <p className="text-sm text-gray-900">{n.clienteNombre}</p>
                   </div>
+                  <p className="text-xs text-red-600 font-semibold">Ver →</p>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
-        </div>
-      )}
-
-      {/* Por cobrar */}
-      {porCobrar.length > 0 && (
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-6">
-          <h2 className="text-lg font-bold text-orange-900 mb-4">💰 Pendientes de Cobro</h2>
-          <div className="space-y-2">
-            {porCobrar.slice(0, 5).map(n => {
-              const saldo = n.total - (n.abonos?.reduce((s, a) => s + a.monto, 0) ?? 0);
-              return (
-                <div
-                  key={n.id}
-                  onClick={() => router.push(`/dashboard/notas/${n.id}`)}
-                  className="bg-white p-3 rounded cursor-pointer hover:bg-orange-50 transition-colors border border-orange-100"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-mono text-sm font-bold text-orange-600">{n.folio}</p>
-                      <p className="text-sm text-gray-900">{n.clienteNombre}</p>
-                    </div>
-                    <p className="text-sm font-bold text-orange-600">
-                      ${saldo.toLocaleString('es-MX')}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Sin urgencias */}
-      {urgentes.length === 0 && porCobrar.length === 0 && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-8 text-center">
-          <p className="text-green-900 font-semibold">✅ ¡Todo al corriente!</p>
-          <p className="text-green-700 text-sm mt-1">No tienes notas urgentes ni cobros pendientes</p>
         </div>
       )}
     </div>
