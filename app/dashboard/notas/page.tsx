@@ -106,7 +106,7 @@ export default function NotasPage() {
   const seleccionarCliente = (cliente: Cliente) => {
     setFormData({
       ...formData,
-      clienteId: cliente.id,
+      clienteId: cliente.id || '',
       clienteNombre: cliente.nombre,
       clienteTelefono: cliente.telefono,
     });
