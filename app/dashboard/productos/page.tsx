@@ -40,6 +40,13 @@ export default function ProductosPage() {
   const [editando, setEditando] = useState<Producto | null>(null);
   const [productosCount, setProductosCount] = useState(0);
 
+  // Estado de errores de validación
+  const [errores, setErrores] = useState<{
+    nombre?: string;
+    categoria?: string;
+    precioBase?: string;
+  }>({});
+
   // Estado del modal de confirmación
   const [modalConfirm, setModalConfirm] = useState<{
     titulo: string;
@@ -94,42 +101,66 @@ export default function ProductosPage() {
     return matchBusqueda && matchCategoria;
   });
 
-  const handleGuardar = async () => {
+  // Validar solo campos requeridos
+  const validarFormulario = (): boolean => {
+    const nuevosErrores: any = {};
+
     if (!formData.nombre.trim()) {
-      showToast('El nombre es requerido', 'error');
-      return;
+      nuevosErrores.nombre = 'El nombre es requerido *';
     }
     if (!formData.categoria) {
-      showToast('Selecciona una categoría', 'error');
-      return;
+      nuevosErrores.categoria = 'Selecciona una categoría *';
     }
     if (!formData.precioBase || parseFloat(formData.precioBase) <= 0) {
-      showToast('El precio base debe ser mayor a 0', 'error');
+      nuevosErrores.precioBase = 'El precio base debe ser mayor a 0 *';
+    }
+
+    setErrores(nuevosErrores);
+    return Object.keys(nuevosErrores).length === 0;
+  };
+
+  const handleGuardar = async () => {
+    if (!validarFormulario()) {
+      showToast('⚠️ Por favor completa los campos requeridos (*)', 'error');
       return;
     }
 
     setGuardando(true);
     try {
-      const productoData: Omit<Producto, 'id'> = {
+      const productoData: any = {
         nombre: formData.nombre.trim(),
         categoria: formData.categoria,
         precioBase: parseFloat(formData.precioBase),
-        precioDocena: formData.precioDocena ? parseFloat(formData.precioDocena) : undefined,
-        precioMayoreo: formData.precioMayoreo ? parseFloat(formData.precioMayoreo) : undefined,
-        cantidadMayoreo: formData.cantidadMayoreo ? parseInt(formData.cantidadMayoreo) : undefined,
-        descripcion: formData.descripcion.trim() || undefined,
-        tiempoPreparacion: formData.tiempoPreparacion ? parseInt(formData.tiempoPreparacion) : undefined,
-        stock: formData.stock ? parseInt(formData.stock) : undefined,
         activo: formData.activo,
         vecesVendido: editando?.vecesVendido || 0,
       };
 
+      // Solo agregar campos opcionales si tienen valor
+      if (formData.precioDocena && parseFloat(formData.precioDocena) > 0) {
+        productoData.precioDocena = parseFloat(formData.precioDocena);
+      }
+      if (formData.precioMayoreo && parseFloat(formData.precioMayoreo) > 0) {
+        productoData.precioMayoreo = parseFloat(formData.precioMayoreo);
+      }
+      if (formData.cantidadMayoreo && parseInt(formData.cantidadMayoreo) > 0) {
+        productoData.cantidadMayoreo = parseInt(formData.cantidadMayoreo);
+      }
+      if (formData.descripcion.trim()) {
+        productoData.descripcion = formData.descripcion.trim();
+      }
+      if (formData.tiempoPreparacion && parseInt(formData.tiempoPreparacion) > 0) {
+        productoData.tiempoPreparacion = parseInt(formData.tiempoPreparacion);
+      }
+      if (formData.stock && parseInt(formData.stock) >= 0) {
+        productoData.stock = parseInt(formData.stock);
+      }
+
       if (editando?.id) {
         await updateProducto(editando.id, productoData);
-        showToast('Producto actualizado correctamente', 'success');
+        showToast('✅ Producto actualizado correctamente', 'success');
       } else {
         await createProducto(productoData);
-        showToast('Producto creado correctamente', 'success');
+        showToast('✅ Producto creado correctamente', 'success');
       }
 
       await cargarProductos();
@@ -137,7 +168,7 @@ export default function ProductosPage() {
       limpiarFormulario();
     } catch (error) {
       console.error(error);
-      showToast('Error al guardar producto', 'error');
+      showToast('❌ Error al guardar producto', 'error');
     } finally {
       setGuardando(false);
     }
@@ -157,6 +188,7 @@ export default function ProductosPage() {
       activo: true,
     });
     setEditando(null);
+    setErrores({});
   };
 
   const handleEditar = (producto: Producto) => {
@@ -173,6 +205,7 @@ export default function ProductosPage() {
       activo: producto.activo,
     });
     setEditando(producto);
+    setErrores({});
     setVista('formulario');
   };
 
@@ -371,9 +404,10 @@ export default function ProductosPage() {
           <>
             {/* Formulario */}
             <div className="bg-white rounded-2xl p-6 border-2 border-gray-100 max-w-2xl mx-auto">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">
                 {editando ? '✏️ Editar Producto' : '➕ Nuevo Producto'}
               </h2>
+              <p className="text-xs text-red-600 mb-6">Los campos marcados con * son requeridos</p>
 
               <div className="space-y-4">
                 {/* Nombre */}
@@ -384,10 +418,18 @@ export default function ProductosPage() {
                   <input
                     type="text"
                     value={formData.nombre}
-                    onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, nombre: e.target.value });
+                      if (e.target.value.trim()) setErrores({ ...errores, nombre: undefined });
+                    }}
                     placeholder="Ej: Taza Personalizada"
-                    className="w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-green-400 focus:outline-none"
+                    className={`w-full px-4 py-2 rounded-lg border-2 focus:outline-none ${
+                      errores.nombre
+                        ? 'border-red-500 focus:border-red-600 bg-red-50'
+                        : 'border-gray-200 focus:border-green-400'
+                    }`}
                   />
+                  {errores.nombre && <p className="text-xs text-red-600 mt-1">⚠️ {errores.nombre}</p>}
                 </div>
 
                 {/* Categoría */}
@@ -397,8 +439,15 @@ export default function ProductosPage() {
                   </label>
                   <select
                     value={formData.categoria}
-                    onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-green-400 focus:outline-none"
+                    onChange={(e) => {
+                      setFormData({ ...formData, categoria: e.target.value });
+                      if (e.target.value) setErrores({ ...errores, categoria: undefined });
+                    }}
+                    className={`w-full px-4 py-2 rounded-lg border-2 focus:outline-none ${
+                      errores.categoria
+                        ? 'border-red-500 focus:border-red-600 bg-red-50'
+                        : 'border-gray-200 focus:border-green-400'
+                    }`}
                   >
                     <option value="">Selecciona una categoría</option>
                     {CATEGORIAS_PREDEFINIDAS.map((cat) => (
@@ -407,6 +456,7 @@ export default function ProductosPage() {
                       </option>
                     ))}
                   </select>
+                  {errores.categoria && <p className="text-xs text-red-600 mt-1">⚠️ {errores.categoria}</p>}
                 </div>
 
                 {/* Descripción */}
@@ -432,11 +482,19 @@ export default function ProductosPage() {
                     <input
                       type="number"
                       value={formData.precioBase}
-                      onChange={(e) => setFormData({ ...formData, precioBase: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, precioBase: e.target.value });
+                        if (parseFloat(e.target.value) > 0) setErrores({ ...errores, precioBase: undefined });
+                      }}
                       placeholder="0.00"
                       step="0.01"
-                      className="w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-green-400 focus:outline-none"
+                      className={`w-full px-4 py-2 rounded-lg border-2 focus:outline-none ${
+                        errores.precioBase
+                          ? 'border-red-500 focus:border-red-600 bg-red-50'
+                          : 'border-gray-200 focus:border-green-400'
+                      }`}
                     />
+                    {errores.precioBase && <p className="text-xs text-red-600 mt-1">⚠️ {errores.precioBase}</p>}
                   </div>
 
                   <div>
