@@ -61,11 +61,22 @@ function ImpresionContent() {
   };
 
   const abonosPeriodo = notas.flatMap(n =>
-    (n.abonos ?? []).map(a => ({ ...a, nota: n }))
+    (n.abonos ?? []).filter(a => a.fecha && typeof a.fecha === 'object' && 'seconds' in a.fecha).map(a => ({ ...a, nota: n }))
   ).filter(a => {
-    const f = new Date(a.fecha.seconds * 1000); f.setHours(0, 0, 0, 0);
-    return f >= getInicioP();
-  }).sort((a, b) => b.fecha.seconds - a.fecha.seconds);
+    try {
+      const f = new Date(a.fecha.seconds * 1000);
+      f.setHours(0, 0, 0, 0);
+      return f >= getInicioP();
+    } catch {
+      return false;
+    }
+  }).sort((a, b) => {
+    try {
+      return b.fecha.seconds - a.fecha.seconds;
+    } catch {
+      return 0;
+    }
+  });
 
   const totalCobradoPeriodo = abonosPeriodo.reduce((s, a) => s + a.monto, 0);
 
@@ -187,7 +198,7 @@ function ImpresionContent() {
                 <div><div className="text-3xl mb-1">🎀</div><h1 className="text-2xl font-extrabold text-gray-800">Nenas Gift Shop</h1><p className="text-gray-500 text-sm">Sistema de Administración</p></div>
                 <div className="text-right">
                   <div className="text-2xl font-extrabold text-pink-600">{notaImprimir.folio}</div>
-                  <p className="text-sm text-gray-500">{notaImprimir.fechaCreacion ? new Date(notaImprimir.fechaCreacion.seconds * 1000).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }) : formatFecha(hoy)}</p>
+                  <p className="text-sm text-gray-500">{notaImprimir.fechaCreacion && typeof notaImprimir.fechaCreacion === 'object' && 'seconds' in notaImprimir.fechaCreacion ? new Date(notaImprimir.fechaCreacion.seconds * 1000).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }) : formatFecha(hoy)}</p>
                 </div>
               </div>
               <div className="mb-6 bg-gray-50 rounded-xl p-4">
