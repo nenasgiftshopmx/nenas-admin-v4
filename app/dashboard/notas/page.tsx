@@ -128,8 +128,16 @@ export default function NotasPage() {
         totalVisitas: 1,
         totalGastado: 0,
       });
-      setClientes([...clientes, { ...nuevoCliente, id: nuevoCliente.id || '' }]);
-      seleccionarCliente({ ...nuevoCliente, id: nuevoCliente.id || '' });
+      const clienteConId: Cliente = {
+        id: nuevoCliente.id || '',
+        nombre: modalNuevoCliente.nombre.trim(),
+        telefono: modalNuevoCliente.telefono.trim(),
+        email: modalNuevoCliente.email.trim(),
+        totalVisitas: 1,
+        totalGastado: 0,
+      };
+      setClientes([...clientes, clienteConId]);
+      seleccionarCliente(clienteConId);
       setModalNuevoCliente(null);
       showToast('✅ Cliente creado correctamente', 'success');
     } catch {
@@ -179,12 +187,19 @@ export default function NotasPage() {
         activo: true,
         vecesVendido: 0,
       });
-      const nuevoConId = { ...nuevoProducto, id: nuevoProducto.id || '' };
-      setProductos([...productos, nuevoConId]);
+      const productoConId: Producto = {
+        id: nuevoProducto.id || '',
+        nombre: modalNuevoProducto.nombre.trim(),
+        categoria: modalNuevoProducto.categoria || 'Otros',
+        precioBase: parseFloat(modalNuevoProducto.precioBase) || 0,
+        activo: true,
+        vecesVendido: 0,
+      };
+      setProductos([...productos, productoConId]);
       
       const trabajo = formData.trabajos.find(t => t.id === modalNuevoProducto.trabajoId);
       if (trabajo) {
-        seleccionarProducto(trabajo, nuevoConId);
+        seleccionarProducto(trabajo, productoConId);
       }
       setModalNuevoProducto(null);
       showToast('✅ Producto creado correctamente', 'success');
