@@ -50,6 +50,7 @@ export default function NotasPage() {
     notas: '',
     asignadaA: '',
     asignadaNombre: '',
+    anticipoMonto: '',
   });
 
   // Estados para dropdowns de cliente
@@ -246,6 +247,23 @@ export default function NotasPage() {
     setGuardando(true);
     try {
       const total = calcularTotal();
+      
+      // Procesar anticipo si existe
+      let abonos = [...formData.abonos];
+      if (formData.anticipoMonto && parseFloat(formData.anticipoMonto) > 0) {
+        const montoAnticipo = parseFloat(formData.anticipoMonto);
+        abonos.push({
+          id: `abono_${Date.now()}`,
+          monto: montoAnticipo,
+          fecha: null as any,
+          cobradoPor: usuarioData.email,
+          cobradoPorNombre: usuarioData.nombre,
+          metodoPago: 'efectivo',
+          concepto: 'Anticipo',
+          notas: '',
+        });
+      }
+      
       const notaData: Omit<Nota, 'id'> = {
         folio: editando?.folio || generarFolio(),
         clienteId: formData.clienteId || undefined,
@@ -258,9 +276,9 @@ export default function NotasPage() {
         asignadaNombre: formData.asignadaNombre || usuarioData.nombre,
         trabajos: formData.trabajos,
         total,
-        abonos: formData.abonos,
-        totalAbonado: formData.abonos.reduce((s, a) => s + a.monto, 0),
-        saldo: total - formData.abonos.reduce((s, a) => s + a.monto, 0),
+        abonos,
+        totalAbonado: abonos.reduce((s, a) => s + a.monto, 0),
+        saldo: total - abonos.reduce((s, a) => s + a.monto, 0),
         archivada: false,
         notas: formData.notas,
         evento: formData.evento,
@@ -283,7 +301,7 @@ export default function NotasPage() {
   };
 
   const limpiarFormulario = () => {
-    setFormData({ clienteId: '', clienteNombre: '', clienteTelefono: '', evento: '', trabajos: [], abonos: [], notas: '', asignadaA: '', asignadaNombre: '' });
+    setFormData({ clienteId: '', clienteNombre: '', clienteTelefono: '', evento: '', trabajos: [], abonos: [], notas: '', asignadaA: '', asignadaNombre: '', anticipoMonto: '' });
     setEditando(null);
     setBusquedaCliente('');
     setClientesFiltrados([]);
@@ -302,6 +320,7 @@ export default function NotasPage() {
       notas: nota.notas || '',
       asignadaA: nota.asignadaA || '',
       asignadaNombre: nota.asignadaNombre || '',
+      anticipoMonto: '',
     });
     setEditando(nota);
     setVista('formulario');
@@ -592,6 +611,22 @@ export default function NotasPage() {
                 </select>
               </div>
 
+              {/* ANTICIPO OPCIONAL */}
+              <div className="mb-6 bg-green-50 rounded-lg p-4 border-2 border-green-200">
+                <label className="block text-sm font-bold text-gray-700 mb-2">💰 Anticipo (Opcional)</label>
+                <input
+                  type="number"
+                  value={formData.anticipoMonto}
+                  onChange={(e) => setFormData({ ...formData, anticipoMonto: e.target.value })}
+                  placeholder="Monto del anticipo"
+                  className="w-full px-4 py-2 rounded-lg border-2 border-green-300 focus:border-green-500 focus:outline-none"
+                  step="0.01"
+                />
+                {formData.anticipoMonto && parseFloat(formData.anticipoMonto) > 0 && (
+                  <p className="text-xs text-green-700 mt-2">✅ Se registrará ${parseFloat(formData.anticipoMonto).toLocaleString()} como anticipo</p>
+                )}
+              </div>
+
               {/* TRABAJOS CON DROPDOWN DE PRODUCTOS */}
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-3">
@@ -649,10 +684,22 @@ export default function NotasPage() {
                         <input type="number" value={trabajo.cantidad} onChange={(e) => actualizarTrabajo(trabajo.id, 'cantidad', parseInt(e.target.value) || 0)} placeholder="Cantidad" className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-purple-400 focus:outline-none" />
                         <input type="number" value={trabajo.precioUnitario} onChange={(e) => actualizarTrabajo(trabajo.id, 'precioUnitario', parseFloat(e.target.value) || 0)} placeholder="Precio" className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-purple-400 focus:outline-none" />
                       </div>
-                      <div className="grid grid-cols-3 gap-2 mb-2">
-                        <input type="text" value={trabajo.fechaEntrega.dia} onChange={(e) => actualizarTrabajo(trabajo.id, 'fechaEntrega', { ...trabajo.fechaEntrega, dia: e.target.value })} placeholder="Día" className="px-3 py-2 rounded-lg border border-gray-300 focus:border-purple-400 focus:outline-none text-sm" />
-                        <input type="text" value={trabajo.fechaEntrega.mes} onChange={(e) => actualizarTrabajo(trabajo.id, 'fechaEntrega', { ...trabajo.fechaEntrega, mes: e.target.value })} placeholder="Mes" className="px-3 py-2 rounded-lg border border-gray-300 focus:border-purple-400 focus:outline-none text-sm" />
-                        <input type="text" value={trabajo.fechaEntrega.anio} onChange={(e) => actualizarTrabajo(trabajo.id, 'fechaEntrega', { ...trabajo.fechaEntrega, anio: e.target.value })} placeholder="Año" className="px-3 py-2 rounded-lg border border-gray-300 focus:border-purple-400 focus:outline-none text-sm" />
+                      <div className="col-span-2">
+                        <label className="block text-xs font-bold text-gray-600 mb-1">Fecha de Entrega</label>
+                        <input
+                          type="date"
+                          value={trabajo.fechaEntrega.anio && trabajo.fechaEntrega.mes && trabajo.fechaEntrega.dia
+                            ? `${trabajo.fechaEntrega.anio}-${trabajo.fechaEntrega.mes.toString().padStart(2, '0')}-${trabajo.fechaEntrega.dia.toString().padStart(2, '0')}`
+                            : ''
+                          }
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              const [anio, mes, dia] = e.target.value.split('-');
+                              actualizarTrabajo(trabajo.id, 'fechaEntrega', { dia, mes, anio });
+                            }
+                          }}
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-purple-400 focus:outline-none text-sm"
+                        />
                       </div>
                       <div className="text-right"><span className="font-bold text-gray-800">Subtotal: ${trabajo.subtotal.toLocaleString()}</span></div>
                     </div>
