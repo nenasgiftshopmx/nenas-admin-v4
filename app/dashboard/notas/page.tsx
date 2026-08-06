@@ -252,10 +252,14 @@ export default function NotasPage() {
       let abonos = [...formData.abonos];
       if (formData.anticipoMonto && parseFloat(formData.anticipoMonto) > 0) {
         const montoAnticipo = parseFloat(formData.anticipoMonto);
+        const ahora = new Date();
         abonos.push({
           id: `abono_${Date.now()}`,
           monto: montoAnticipo,
-          fecha: null as any,
+          fecha: {
+            seconds: Math.floor(ahora.getTime() / 1000),
+            nanoseconds: 0,
+          } as any,
           cobradoPor: usuarioData.email,
           cobradoPorNombre: usuarioData.nombre,
           metodoPago: 'efectivo',
@@ -406,7 +410,12 @@ export default function NotasPage() {
 
   const formatFecha = (nota: Nota) => {
     if (!nota.fechaCreacion) return '';
-    try { return new Date(nota.fechaCreacion.seconds * 1000).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }); }
+    try {
+      if (nota.fechaCreacion && typeof nota.fechaCreacion === 'object' && 'seconds' in nota.fechaCreacion) {
+        return new Date(nota.fechaCreacion.seconds * 1000).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+      }
+      return '';
+    }
     catch { return ''; }
   };
 
