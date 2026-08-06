@@ -305,12 +305,12 @@ export default function ProductosPage() {
                     <div className="bg-gray-50 rounded-lg p-3 mb-3 space-y-1 text-sm">
                       <div className="flex justify-between">
                         <span className="text-gray-600">Precio Base:</span>
-                        <span className="font-bold text-green-600">${producto.precioBase.toLocaleString()}</span>
+                        <span className="font-bold text-green-600">${(producto.precioBase || 0).toLocaleString()}</span>
                       </div>
                       {producto.precioDocena && (
                         <div className="flex justify-between">
                           <span className="text-gray-600">Precio x Docena:</span>
-                          <span className="font-bold text-blue-600">${producto.precioDocena.toLocaleString()}</span>
+                          <span className="font-bold text-blue-600">${(producto.precioDocena || 0).toLocaleString()}</span>
                         </div>
                       )}
                       {producto.precioMayoreo && (
@@ -318,7 +318,7 @@ export default function ProductosPage() {
                           <span className="text-gray-600">
                             Mayoreo ({producto.cantidadMayoreo}+ pzas):
                           </span>
-                          <span className="font-bold text-purple-600">${producto.precioMayoreo.toLocaleString()}</span>
+                          <span className="font-bold text-purple-600">${(producto.precioMayoreo || 0).toLocaleString()}</span>
                         </div>
                       )}
                     </div>
