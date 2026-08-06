@@ -223,117 +223,12 @@ export async function getClientes(): Promise<Cliente[]> {
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Cliente));
 }
 
-export async function getCliente(id: string): Promise<Cliente | null> {
-  try {
-    const docRef = doc(db, 'clientes', id);
-    const docSnap = await getDoc(docRef);
-    return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } as Cliente : null;
-  } catch (error) {
-    console.error('Error obteniendo cliente:', error);
-    return null;
-  }
-}
-
 export async function createCliente(data: Omit<Cliente, 'id'>): Promise<string> {
   const docRef = await addDoc(collection(db, 'clientes'), {
     ...data,
     createdAt: Timestamp.now(),
   });
   return docRef.id;
-}
-
-export async function updateCliente(id: string, data: Partial<Cliente>): Promise<void> {
-  try {
-    const docRef = doc(db, 'clientes', id);
-    await updateDoc(docRef, data);
-  } catch (error) {
-    console.error('Error actualizando cliente:', error);
-    throw error;
-  }
-}
-
-export async function deleteCliente(id: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, 'clientes', id));
-  } catch (error) {
-    console.error('Error eliminando cliente:', error);
-    throw error;
-  }
-}
-
-export async function buscarClientes(searchTerm: string): Promise<Cliente[]> {
-  try {
-    if (!searchTerm.trim()) {
-      return await getClientes();
-    }
-    
-    const termino = searchTerm.toLowerCase();
-    const clientes = await getClientes();
-    
-    return clientes.filter(c => 
-      c.nombre.toLowerCase().includes(termino) ||
-      c.telefono.includes(termino) ||
-      (c.email && c.email.toLowerCase().includes(termino))
-    );
-  } catch (error) {
-    console.error('Error buscando clientes:', error);
-    return [];
-  }
-}
-
-export async function obtenerClientePorNombreTelefono(nombre: string, telefono: string): Promise<Cliente | null> {
-  try {
-    const clientes = await getClientes();
-    return clientes.find(c => 
-      c.nombre.toLowerCase() === nombre.toLowerCase() && 
-      c.telefono === telefono
-    ) || null;
-  } catch (error) {
-    console.error('Error buscando cliente:', error);
-    return null;
-  }
-}
-
-export async function obtenerOCrearCliente(nombre: string, telefono: string, email?: string): Promise<string> {
-  try {
-    // Buscar si existe
-    const clienteExistente = await obtenerClientePorNombreTelefono(nombre, telefono);
-    if (clienteExistente && clienteExistente.id) {
-      return clienteExistente.id;
-    }
-    
-    // No existe, crear nuevo
-    const clienteData: Omit<Cliente, 'id'> = {
-      nombre: nombre.trim(),
-      telefono: telefono.trim(),
-      email: email?.trim() || undefined,
-      totalVisitas: 0,
-      totalGastado: 0,
-    };
-    
-    return await createCliente(clienteData);
-  } catch (error) {
-    console.error('Error en obtenerOCrearCliente:', error);
-    throw error;
-  }
-}
-
-export async function actualizarEstadisticasCliente(
-  clienteId: string,
-  montoVenta: number
-): Promise<void> {
-  try {
-    const cliente = await getCliente(clienteId);
-    if (!cliente) return;
-    
-    await updateCliente(clienteId, {
-      totalVisitas: (cliente.totalVisitas || 0) + 1,
-      totalGastado: (cliente.totalGastado || 0) + montoVenta,
-      ultimaVisita: Timestamp.now(),
-    });
-  } catch (error) {
-    console.error('Error actualizando estadísticas del cliente:', error);
-  }
 }
 
 // ==================== PRODUCTOS ====================
@@ -343,85 +238,12 @@ export async function getProductos(): Promise<Producto[]> {
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Producto));
 }
 
-export async function getProducto(id: string): Promise<Producto | null> {
-  try {
-    const docRef = doc(db, 'productos', id);
-    const docSnap = await getDoc(docRef);
-    return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } as Producto : null;
-  } catch (error) {
-    console.error('Error obteniendo producto:', error);
-    return null;
-  }
-}
-
 export async function createProducto(data: Omit<Producto, 'id'>): Promise<string> {
   const docRef = await addDoc(collection(db, 'productos'), {
     ...data,
     createdAt: Timestamp.now(),
   });
   return docRef.id;
-}
-
-export async function updateProducto(id: string, data: Partial<Producto>): Promise<void> {
-  try {
-    const docRef = doc(db, 'productos', id);
-    await updateDoc(docRef, data);
-  } catch (error) {
-    console.error('Error actualizando producto:', error);
-    throw error;
-  }
-}
-
-export async function deleteProducto(id: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, 'productos', id));
-  } catch (error) {
-    console.error('Error eliminando producto:', error);
-    throw error;
-  }
-}
-
-export async function buscarProductos(searchTerm: string): Promise<Producto[]> {
-  try {
-    if (!searchTerm.trim()) {
-      return await getProductos();
-    }
-    
-    const termino = searchTerm.toLowerCase();
-    const productos = await getProductos();
-    
-    return productos.filter(p => 
-      p.nombre.toLowerCase().includes(termino) ||
-      (p.categoria && p.categoria.toLowerCase().includes(termino)) ||
-      (p.descripcion && p.descripcion.toLowerCase().includes(termino))
-    );
-  } catch (error) {
-    console.error('Error buscando productos:', error);
-    return [];
-  }
-}
-
-export async function getProductosPorCategoria(categoria: string): Promise<Producto[]> {
-  try {
-    const productos = await getProductos();
-    return productos.filter(p => p.categoria.toLowerCase() === categoria.toLowerCase());
-  } catch (error) {
-    console.error('Error obteniendo productos por categoría:', error);
-    return [];
-  }
-}
-
-export async function getProductosDestacados(): Promise<Producto[]> {
-  try {
-    const productos = await getProductos();
-    return productos
-      .filter(p => p.activo)
-      .sort((a, b) => (b.vecesVendido || 0) - (a.vecesVendido || 0))
-      .slice(0, 10);
-  } catch (error) {
-    console.error('Error obteniendo productos destacados:', error);
-    return [];
-  }
 }
 
 // ==================== AUDITORÍA ====================
@@ -496,19 +318,4 @@ export function tieneEntregasVencidas(nota: Nota): boolean {
 
 export function generarFolio(): string {
   return 'NV-' + String(Math.floor(Math.random() * 9000) + 1000);
-}
-
-export async function contar(coleccion: 'clientes' | 'productos'): Promise<number> {
-  try {
-    if (coleccion === 'clientes') {
-      const clientes = await getClientes();
-      return clientes.length;
-    } else {
-      const productos = await getProductos();
-      return productos.length;
-    }
-  } catch (error) {
-    console.error('Error contando:', error);
-    return 0;
-  }
 }

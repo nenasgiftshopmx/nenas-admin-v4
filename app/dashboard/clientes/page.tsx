@@ -1,32 +1,51 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
 import { useRouter } from 'next/navigation';
-import { getNotas, calcularEstadoNota } from '@/lib/firestore';
-import { Nota } from '@/types';
-
-interface ClienteResumen {
-  nombre: string;
-  telefono: string;
-  notas: Nota[];
-  totalGastado: number;
-  totalAbonado: number;
-  saldoPendiente: number;
-  trabajosPendientes: number;
-  trabajosEntregados: number;
-  ultimaVisita: any;
-  visitas: number;
-}
+import {
+  getClientes,
+  createCliente,
+  updateCliente,
+  deleteCliente,
+  buscarClientes,
+  contar,
+} from '@/lib/firestore';
+import { Cliente } from '@/types';
 
 export default function ClientesPage() {
   const { user, usuarioData, loading: authLoading } = useAuth();
+  const { showToast } = useToast();
   const router = useRouter();
 
-  const [clientes, setClientes] = useState<ClienteResumen[]>([]);
+  const esAdmin = usuarioData?.rol === 'admin';
+
+  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
+  const [guardando, setGuardando] = useState(false);
   const [busqueda, setBusqueda] = useState('');
-  const [clienteDetalle, setClienteDetalle] = useState<ClienteResumen | null>(null);
+  const [vista, setVista] = useState<'lista' | 'formulario'>('lista');
+  const [editando, setEditando] = useState<Cliente | null>(null);
+  const [clientesCount, setClientesCount] = useState(0);
+
+  // Estado del modal de confirmación
+  const [modalConfirm, setModalConfirm] = useState<{
+    titulo: string;
+    mensaje: string;
+    onConfirm: () => void;
+  } | null>(null);
+
+  // Estado del formulario
+  const [formData, setFormData] = useState({
+    nombre: '',
+    telefono: '',
+    email: '',
+    ocasionesRecurrentes: [] as string[],
+    notas: '',
+  });
+
+  const [ocasionInput, setOcasionInput] = useState('');
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/');
@@ -38,254 +57,414 @@ export default function ClientesPage() {
 
   const cargarClientes = async () => {
     try {
-      const notas = await getNotas();
-
-      // Agrupar notas por cliente (por nombre normalizado)
-      const mapa: Record<string, ClienteResumen> = {};
-
-      notas.forEach(nota => {
-        const key = nota.clienteNombre.toLowerCase().trim();
-        if (!mapa[key]) {
-          mapa[key] = {
-            nombre: nota.clienteNombre,
-            telefono: nota.clienteTelefono || '',
-            notas: [],
-            totalGastado: 0,
-            totalAbonado: 0,
-            saldoPendiente: 0,
-            trabajosPendientes: 0,
-            trabajosEntregados: 0,
-            ultimaVisita: null,
-            visitas: 0,
-          };
-        }
-
-        const c = mapa[key];
-        c.notas.push(nota);
-        c.visitas++;
-        c.totalGastado += nota.total;
-
-        const abonado = nota.abonos?.reduce((s, a) => s + a.monto, 0) ?? 0;
-        c.totalAbonado += abonado;
-        c.saldoPendiente += Math.max(0, nota.total - abonado);
-
-        nota.trabajos.forEach(t => {
-          if (t.entregado) c.trabajosEntregados++;
-          else c.trabajosPendientes++;
-        });
-
-        if (!nota.archivada) {
-          if (!c.ultimaVisita || (nota.fechaCreacion && nota.fechaCreacion.seconds > c.ultimaVisita.seconds)) {
-            c.ultimaVisita = nota.fechaCreacion;
-          }
-        }
-
-        // Actualizar teléfono si el actual está vacío
-        if (!c.telefono && nota.clienteTelefono) {
-          c.telefono = nota.clienteTelefono;
-        }
-      });
-
-      // Ordenar por saldo pendiente desc, luego por visitas desc
-      const lista = Object.values(mapa).sort((a, b) => {
-        if (b.saldoPendiente !== a.saldoPendiente) return b.saldoPendiente - a.saldoPendiente;
-        return b.visitas - a.visitas;
-      });
-
-      setClientes(lista);
+      const data = await getClientes();
+      setClientes(data);
+      const count = await contar('clientes');
+      setClientesCount(count);
     } catch (error) {
-      console.error('Error cargando clientes:', error);
+      console.error(error);
+      showToast('Error al cargar clientes', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const clientesFiltrados = clientes.filter(c =>
-    c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-    c.telefono.includes(busqueda)
-  );
+  const clientesFiltrados = busqueda.trim()
+    ? clientes.filter(c =>
+        c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+        c.telefono.includes(busqueda) ||
+        (c.email && c.email.toLowerCase().includes(busqueda.toLowerCase()))
+      )
+    : clientes;
 
-  const abrirWhatsApp = (telefono: string, nombre: string) => {
-    const num = telefono.replace(/\D/g, '');
-    const msg = encodeURIComponent(`Hola ${nombre}, te contactamos de Nenas Gift Shop 🎀`);
-    window.open(`https://wa.me/52${num}?text=${msg}`, '_blank');
-  };
+  const handleGuardar = async () => {
+    if (!formData.nombre.trim()) {
+      showToast('El nombre es requerido', 'error');
+      return;
+    }
+    if (!formData.telefono.trim()) {
+      showToast('El teléfono es requerido', 'error');
+      return;
+    }
 
-  const formatFecha = (ts: any) => {
-    if (!ts) return '-';
+    setGuardando(true);
     try {
-      return new Date(ts.seconds * 1000).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
-    } catch { return '-'; }
+      const clienteData: Omit<Cliente, 'id'> = {
+        nombre: formData.nombre.trim(),
+        telefono: formData.telefono.trim(),
+        email: formData.email.trim() || undefined,
+        ocasionesRecurrentes: formData.ocasionesRecurrentes,
+        notas: formData.notas.trim() || undefined,
+        totalVisitas: editando?.totalVisitas || 0,
+        totalGastado: editando?.totalGastado || 0,
+        ultimaVisita: editando?.ultimaVisita,
+      };
+
+      if (editando?.id) {
+        await updateCliente(editando.id, clienteData);
+        showToast('Cliente actualizado correctamente', 'success');
+      } else {
+        await createCliente(clienteData);
+        showToast('Cliente creado correctamente', 'success');
+      }
+
+      await cargarClientes();
+      setVista('lista');
+      limpiarFormulario();
+    } catch (error) {
+      console.error(error);
+      showToast('Error al guardar cliente', 'error');
+    } finally {
+      setGuardando(false);
+    }
   };
 
-  if (authLoading || loading) {
+  const limpiarFormulario = () => {
+    setFormData({
+      nombre: '',
+      telefono: '',
+      email: '',
+      ocasionesRecurrentes: [],
+      notas: '',
+    });
+    setEditando(null);
+    setOcasionInput('');
+  };
+
+  const handleEditar = (cliente: Cliente) => {
+    setFormData({
+      nombre: cliente.nombre,
+      telefono: cliente.telefono,
+      email: cliente.email || '',
+      ocasionesRecurrentes: cliente.ocasionesRecurrentes || [],
+      notas: cliente.notas || '',
+    });
+    setEditando(cliente);
+    setVista('formulario');
+  };
+
+  const handleEliminar = (cliente: Cliente) => {
+    if (!esAdmin) {
+      showToast('Solo admin puede eliminar clientes', 'error');
+      return;
+    }
+
+    setModalConfirm({
+      titulo: 'Eliminar cliente',
+      mensaje: `¿Eliminar a ${cliente.nombre}? Esta acción no se puede deshacer.`,
+      onConfirm: async () => {
+        setModalConfirm(null);
+        try {
+          await deleteCliente(cliente.id!);
+          await cargarClientes();
+          showToast(`${cliente.nombre} eliminado`, 'success');
+        } catch (error) {
+          console.error(error);
+          showToast('Error al eliminar cliente', 'error');
+        }
+      },
+    });
+  };
+
+  const agregarOcasion = () => {
+    if (!ocasionInput.trim()) return;
+    if (!formData.ocasionesRecurrentes.includes(ocasionInput.trim())) {
+      setFormData({
+        ...formData,
+        ocasionesRecurrentes: [...formData.ocasionesRecurrentes, ocasionInput.trim()],
+      });
+    }
+    setOcasionInput('');
+  };
+
+  const eliminarOcasion = (ocasion: string) => {
+    setFormData({
+      ...formData,
+      ocasionesRecurrentes: formData.ocasionesRecurrentes.filter(o => o !== ocasion),
+    });
+  };
+
+  if (authLoading || loading)
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="text-4xl mb-3 animate-bounce">🎀</div>
           <p className="text-gray-600">Cargando clientes...</p>
         </div>
       </div>
     );
-  }
+
+  if (!user || !usuarioData) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-20">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => router.push('/dashboard')} className="text-2xl hover:scale-110 transition-transform">←</button>
-            <div>
-              <h1 className="text-xl font-bold text-gray-800">Clientes</h1>
-              <p className="text-sm text-gray-500">{clientesFiltrados.length} clientes</p>
-            </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">👥 Catálogo de Clientes</h1>
+            <p className="text-sm text-gray-500 mt-1">{clientesCount} cliente(s) registrado(s)</p>
           </div>
-        </div>
-      </div>
-
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
-
-        {/* Resumen rápido */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white rounded-xl border-2 border-gray-100 p-3 text-center">
-            <div className="text-2xl font-extrabold text-gray-800">{clientes.length}</div>
-            <div className="text-xs text-gray-500">Total clientes</div>
-          </div>
-          <div className="bg-red-50 rounded-xl border-2 border-red-100 p-3 text-center">
-            <div className="text-2xl font-extrabold text-red-600">
-              ${clientes.reduce((s, c) => s + c.saldoPendiente, 0).toLocaleString()}
-            </div>
-            <div className="text-xs text-red-500">Por cobrar</div>
-          </div>
-          <div className="bg-purple-50 rounded-xl border-2 border-purple-100 p-3 text-center">
-            <div className="text-2xl font-extrabold text-purple-600">
-              {clientes.filter(c => c.saldoPendiente > 0).length}
-            </div>
-            <div className="text-xs text-purple-500">Con saldo</div>
-          </div>
-        </div>
-
-        {/* Búsqueda */}
-        <input
-          type="text"
-          placeholder="🔍 Buscar por nombre o teléfono..."
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 focus:border-purple-400 focus:outline-none"
-        />
-
-        {/* Lista de clientes */}
-        <div className="space-y-3">
-          {clientesFiltrados.map((cliente, idx) => (
-            <div
-              key={idx}
-              className={`bg-white rounded-xl border-2 p-4 ${
-                cliente.saldoPendiente > 0 ? 'border-red-100' : 'border-gray-100'
-              }`}
+          {vista === 'lista' && (
+            <button
+              onClick={() => {
+                limpiarFormulario();
+                setVista('formulario');
+              }}
+              className="bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600"
             >
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h3 className="font-bold text-gray-800 text-lg">{cliente.nombre}</h3>
-                  <div className="flex items-center gap-3 mt-0.5">
-                    {cliente.telefono && (
-                      <span className="text-sm text-gray-400">{cliente.telefono}</span>
-                    )}
-                    <span className="text-xs text-gray-400">{cliente.visitas} visita(s)</span>
-                    <span className="text-xs text-gray-400">Última: {formatFecha(cliente.ultimaVisita)}</span>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-lg font-extrabold text-gray-800">${cliente.totalGastado.toLocaleString()}</div>
-                  <div className="text-xs text-gray-400">total histórico</div>
-                </div>
-              </div>
-
-              {/* Barra de estado */}
-              <div className="grid grid-cols-3 gap-2 mb-3">
-                <div className="bg-gray-50 rounded-lg p-2 text-center">
-                  <div className="text-sm font-bold text-gray-600">${cliente.totalAbonado.toLocaleString()}</div>
-                  <div className="text-xs text-gray-400">Abonado</div>
-                </div>
-                <div className={`rounded-lg p-2 text-center ${cliente.saldoPendiente > 0 ? 'bg-red-50' : 'bg-green-50'}`}>
-                  <div className={`text-sm font-bold ${cliente.saldoPendiente > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    ${cliente.saldoPendiente.toLocaleString()}
-                  </div>
-                  <div className="text-xs text-gray-400">Saldo</div>
-                </div>
-                <div className={`rounded-lg p-2 text-center ${cliente.trabajosPendientes > 0 ? 'bg-orange-50' : 'bg-green-50'}`}>
-                  <div className={`text-sm font-bold ${cliente.trabajosPendientes > 0 ? 'text-orange-600' : 'text-green-600'}`}>
-                    {cliente.trabajosPendientes > 0 ? `${cliente.trabajosPendientes} pend.` : '✓ Todo'}
-                  </div>
-                  <div className="text-xs text-gray-400">Entregas</div>
-                </div>
-              </div>
-
-              {/* Notas activas del cliente */}
-              {cliente.notas.filter(n => !n.archivada).length > 0 && (
-                <div className="border-t border-gray-100 pt-3 mb-3">
-                  <p className="text-xs font-bold text-gray-500 mb-2">NOTAS ACTIVAS</p>
-                  <div className="space-y-1">
-                    {cliente.notas.filter(n => !n.archivada).map(nota => {
-                      const saldo = nota.total - (nota.abonos?.reduce((s, a) => s + a.monto, 0) ?? 0);
-                      const estado = calcularEstadoNota(nota);
-                      const pendientes = nota.trabajos.filter(t => !t.entregado).length;
-                      return (
-                        <button
-                          key={nota.id}
-                          onClick={() => router.push(`/dashboard/notas/${nota.id}`)}
-                          className="w-full flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 hover:bg-purple-50 transition-colors"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-pink-600">{nota.folio}</span>
-                            {pendientes > 0 && (
-                              <span className="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full font-bold">
-                                {pendientes} pend.
-                              </span>
-                            )}
-                            {estado.estadoGeneral === 'urgente' && (
-                              <span className="text-xs">🔥</span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {saldo > 0 && <span className="text-xs font-bold text-red-600">${saldo.toLocaleString()}</span>}
-                            <span className="text-xs text-gray-400">→</span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Acciones */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => router.push(`/dashboard/notas?busqueda=${encodeURIComponent(cliente.nombre)}`)}
-                  className="flex-1 px-3 py-1.5 bg-purple-50 text-purple-600 rounded-lg text-sm font-semibold hover:bg-purple-100"
-                >
-                  📋 Ver notas
-                </button>
-                {cliente.telefono && (
-                  <button
-                    onClick={() => abrirWhatsApp(cliente.telefono, cliente.nombre)}
-                    className="flex-1 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-sm font-semibold hover:bg-emerald-100"
-                  >
-                    💬 WhatsApp
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {clientesFiltrados.length === 0 && (
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">👥</div>
-              <p className="text-gray-500 font-semibold">No se encontraron clientes</p>
-            </div>
+              ➕ Nuevo Cliente
+            </button>
           )}
         </div>
       </div>
+
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        {vista === 'lista' ? (
+          <>
+            {/* Búsqueda */}
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="Buscar por nombre, teléfono o email..."
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                className="w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-blue-400 focus:outline-none"
+              />
+            </div>
+
+            {/* Lista de clientes */}
+            {clientesFiltrados.length === 0 ? (
+              <div className="bg-white rounded-2xl p-8 text-center border-2 border-gray-100">
+                <div className="text-5xl mb-3">😢</div>
+                <p className="text-gray-600 font-semibold">No hay clientes registrados</p>
+                <p className="text-gray-500 text-sm mt-1">
+                  {busqueda ? 'Intenta con otra búsqueda' : 'Crea tu primer cliente ahora'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3">
+                {clientesFiltrados.map((cliente) => (
+                  <div
+                    key={cliente.id}
+                    className="bg-white rounded-2xl p-4 border-2 border-gray-100 hover:shadow-md transition-all"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-bold text-lg text-gray-800">{cliente.nombre}</h3>
+                        <div className="mt-2 space-y-1">
+                          <p className="text-sm text-gray-600">
+                            📞 <span className="font-semibold">{cliente.telefono}</span>
+                          </p>
+                          {cliente.email && (
+                            <p className="text-sm text-gray-600">
+                              📧 <span className="font-semibold">{cliente.email}</span>
+                            </p>
+                          )}
+                        </div>
+                        <div className="mt-3 flex gap-4 text-sm">
+                          <div className="bg-blue-50 px-3 py-1 rounded-lg">
+                            <span className="text-blue-600 font-bold">
+                              {cliente.totalVisitas || 0}
+                            </span>
+                            <span className="text-blue-500 text-xs ml-1">visitas</span>
+                          </div>
+                          <div className="bg-green-50 px-3 py-1 rounded-lg">
+                            <span className="text-green-600 font-bold">
+                              ${(cliente.totalGastado || 0).toLocaleString()}
+                            </span>
+                            <span className="text-green-500 text-xs ml-1">gastado</span>
+                          </div>
+                        </div>
+                        {cliente.ocasionesRecurrentes && cliente.ocasionesRecurrentes.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {cliente.ocasionesRecurrentes.map((ocasion, idx) => (
+                              <span
+                                key={idx}
+                                className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full"
+                              >
+                                {ocasion}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEditar(cliente)}
+                          className="bg-blue-100 text-blue-600 px-3 py-2 rounded-lg font-semibold hover:bg-blue-200 text-sm"
+                        >
+                          ✏️ Editar
+                        </button>
+                        {esAdmin && (
+                          <button
+                            onClick={() => handleEliminar(cliente)}
+                            className="bg-red-100 text-red-600 px-3 py-2 rounded-lg font-semibold hover:bg-red-200 text-sm"
+                          >
+                            🗑️ Eliminar
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Formulario */}
+            <div className="bg-white rounded-2xl p-6 border-2 border-gray-100 max-w-2xl mx-auto">
+              <h2 className="text-2xl font-bold text-gray-800 mb-6">
+                {editando ? '✏️ Editar Cliente' : '➕ Nuevo Cliente'}
+              </h2>
+
+              <div className="space-y-4">
+                {/* Nombre */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    Nombre *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.nombre}
+                    onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                    placeholder="Nombre completo"
+                    className="w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-blue-400 focus:outline-none"
+                  />
+                </div>
+
+                {/* Teléfono */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    Teléfono *
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.telefono}
+                    onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
+                    placeholder="Ej: 8641234567"
+                    className="w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-blue-400 focus:outline-none"
+                  />
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="correo@ejemplo.com"
+                    className="w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-blue-400 focus:outline-none"
+                  />
+                </div>
+
+                {/* Ocasiones Recurrentes */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    Ocasiones Recurrentes
+                  </label>
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={ocasionInput}
+                      onChange={(e) => setOcasionInput(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && agregarOcasion()}
+                      placeholder="Ej: Cumpleaños, Aniversario"
+                      className="flex-1 px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-blue-400 focus:outline-none"
+                    />
+                    <button
+                      onClick={agregarOcasion}
+                      className="bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600"
+                    >
+                      Agregar
+                    </button>
+                  </div>
+                  {formData.ocasionesRecurrentes.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {formData.ocasionesRecurrentes.map((ocasion) => (
+                        <div
+                          key={ocasion}
+                          className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full flex items-center gap-2 text-sm"
+                        >
+                          {ocasion}
+                          <button
+                            onClick={() => eliminarOcasion(ocasion)}
+                            className="font-bold hover:text-purple-900"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Notas */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    Notas Adicionales
+                  </label>
+                  <textarea
+                    value={formData.notas}
+                    onChange={(e) => setFormData({ ...formData, notas: e.target.value })}
+                    placeholder="Información adicional del cliente..."
+                    rows={3}
+                    className="w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-blue-400 focus:outline-none"
+                  />
+                </div>
+
+                {/* Botones */}
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={handleGuardar}
+                    disabled={guardando}
+                    className="flex-1 bg-green-500 text-white px-4 py-3 rounded-lg font-bold hover:bg-green-600 disabled:opacity-50"
+                  >
+                    {guardando ? '💾 Guardando...' : '✅ Guardar'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setVista('lista');
+                      limpiarFormulario();
+                    }}
+                    className="flex-1 bg-gray-300 text-gray-700 px-4 py-3 rounded-lg font-bold hover:bg-gray-400"
+                  >
+                    ❌ Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Modal de confirmación */}
+      {modalConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-sm mx-4">
+            <h3 className="text-xl font-bold text-gray-800 mb-2">{modalConfirm.titulo}</h3>
+            <p className="text-gray-600 mb-6">{modalConfirm.mensaje}</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setModalConfirm(null)}
+                className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-400"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={modalConfirm.onConfirm}
+                className="flex-1 bg-red-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-600"
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

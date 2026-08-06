@@ -15,7 +15,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     { icon: '📅', label: 'Calendario', ruta: '/dashboard/calendario', color: 'text-indigo-600' },
     { icon: '📊', label: 'Reportes',   ruta: '/dashboard/reportes',   color: 'text-green-600'  },
     { icon: '🖨️', label: 'Imprimir',  ruta: '/dashboard/impresion',  color: 'text-pink-600'   },
-    { icon: '🎁', label: 'Productos',  ruta: null,                    color: 'text-gray-400'   },
+    { icon: '🎁', label: 'Productos',  ruta: '/dashboard/productos',  color: 'text-green-600'  },
   ];
 
   // No mostrar navbar en la página raíz del dashboard (home)
