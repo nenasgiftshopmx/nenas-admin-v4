@@ -121,7 +121,7 @@ export default function NotasPage() {
       return;
     }
     try {
-      const nuevoCliente = await createCliente({
+      const clienteId = await createCliente({
         nombre: modalNuevoCliente.nombre.trim(),
         telefono: modalNuevoCliente.telefono.trim(),
         email: modalNuevoCliente.email.trim(),
@@ -129,7 +129,7 @@ export default function NotasPage() {
         totalGastado: 0,
       });
       const clienteConId: Cliente = {
-        id: nuevoCliente.id || '',
+        id: clienteId || '',
         nombre: modalNuevoCliente.nombre.trim(),
         telefono: modalNuevoCliente.telefono.trim(),
         email: modalNuevoCliente.email.trim(),
@@ -180,7 +180,7 @@ export default function NotasPage() {
       return;
     }
     try {
-      const nuevoProducto = await createProducto({
+      const productoId = await createProducto({
         nombre: modalNuevoProducto.nombre.trim(),
         categoria: modalNuevoProducto.categoria || 'Otros',
         precioBase: parseFloat(modalNuevoProducto.precioBase) || 0,
@@ -188,7 +188,7 @@ export default function NotasPage() {
         vecesVendido: 0,
       });
       const productoConId: Producto = {
-        id: nuevoProducto.id || '',
+        id: productoId || '',
         nombre: modalNuevoProducto.nombre.trim(),
         categoria: modalNuevoProducto.categoria || 'Otros',
         precioBase: parseFloat(modalNuevoProducto.precioBase) || 0,
