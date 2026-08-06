@@ -7,6 +7,26 @@ import { getNotas, calcularEstadoNota, tieneEntregasVencidas } from '@/lib/fires
 import { Nota } from '@/types';
 import Link from 'next/link';
 
+// Logo Nenas (SVG)
+function LogoNenas() {
+  return (
+    <svg width="60" height="60" viewBox="0 0 100 100" className="rounded-full">
+      {/* Fondo círculo azul */}
+      <circle cx="50" cy="50" r="48" fill="#0F3B66" stroke="white" strokeWidth="2" />
+      
+      {/* Decoración rosa arriba */}
+      <g fill="#FF4D7D">
+        <path d="M 50 15 Q 45 20 40 18 Q 42 15 40 10 Q 50 5 60 10 Q 58 15 60 18 Q 55 20 50 15" />
+      </g>
+      
+      {/* Número 01 */}
+      <text x="50" y="65" fontSize="48" fontWeight="bold" fill="white" textAnchor="middle" fontFamily="Arial">
+        01
+      </text>
+    </svg>
+  );
+}
+
 export default function DashboardPage() {
   const { user, usuarioData, loading } = useAuth();
   const router = useRouter();
@@ -34,7 +54,7 @@ export default function DashboardPage() {
 
   if (loading || !user || !usuarioData) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <div className="text-center">
           <div className="w-12 h-12 rounded-full border-4 border-gray-300 border-t-blue-600 animate-spin mx-auto mb-3"></div>
           <p className="text-gray-600">Cargando...</p>
@@ -140,94 +160,97 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-8 p-6 bg-gray-50 min-h-screen">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">
-          ¡Hola, {usuarioData.nombre}! 👋
-        </h1>
-        <p className="text-gray-600 mt-1">
-          {new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-        </p>
-      </div>
-
-      {/* Métricas rápidas (4 cards) */}
-      {loadingNotas ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="h-24 bg-gray-200 rounded-lg animate-pulse"></div>
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Urgentes */}
-          <div className="bg-red-50 border border-red-200 rounded-lg p-5">
-            <p className="text-red-700 font-semibold text-2xl">{urgentes.length}</p>
-            <p className="text-red-600 text-sm font-medium">Urgentes</p>
+    <div className="min-h-screen bg-gray-100 py-4 px-4 flex items-start justify-center">
+      {/* Contenedor móvil (390px) */}
+      <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden">
+        <div className="space-y-6 p-5 bg-gray-50">
+          {/* Header con Logo */}
+          <div className="flex items-center gap-4">
+            <LogoNenas />
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Hola, {usuarioData.nombre}! 👋
+              </h1>
+              <p className="text-xs text-gray-600 mt-1">
+                {new Date().toLocaleDateString('es-MX', { weekday: 'short', month: 'short', day: 'numeric' })}
+              </p>
+            </div>
           </div>
 
-          {/* Por cobrar */}
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-5">
-            <p className="text-orange-700 font-semibold text-2xl">
-              ${totalPorCobrar.toLocaleString('es-MX')}
-            </p>
-            <p className="text-orange-600 text-sm font-medium">Por Cobrar</p>
-          </div>
-
-          {/* Entregas hoy */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-5">
-            <p className="text-blue-700 font-semibold text-2xl">{entregasHoy}</p>
-            <p className="text-blue-600 text-sm font-medium">Entregas Hoy</p>
-          </div>
-
-          {/* Cobrado hoy */}
-          <div className="bg-green-50 border border-green-200 rounded-lg p-5">
-            <p className="text-green-700 font-semibold text-2xl">
-              ${cobradoHoy.toLocaleString('es-MX')}
-            </p>
-            <p className="text-green-600 text-sm font-medium">Cobrado Hoy</p>
-          </div>
-        </div>
-      )}
-
-      {/* MÓDULOS HUB (6 tarjetas grandes) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {modulos.map(modulo => (
-          <Link
-            key={modulo.titulo}
-            href={modulo.href}
-            className={`border-2 rounded-xl p-8 cursor-pointer transition-all hover:shadow-lg hover:scale-105 ${modulo.color}`}
-          >
-            <div className="text-5xl mb-4">{modulo.icono}</div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">{modulo.titulo}</h2>
-            <p className="text-gray-600 text-sm">{modulo.stats}</p>
-          </Link>
-        ))}
-      </div>
-
-      {/* Sección de urgencias (si hay) */}
-      {urgentes.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-          <h2 className="text-lg font-bold text-red-900 mb-4">🔴 Requieren Atención</h2>
-          <div className="space-y-2">
-            {urgentes.slice(0, 3).map(n => (
-              <div
-                key={n.id}
-                onClick={() => router.push(`/dashboard/notas/${n.id}`)}
-                className="bg-white p-3 rounded cursor-pointer hover:bg-red-50 transition-colors border border-red-100"
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-mono text-sm font-bold text-red-600">{n.folio}</p>
-                    <p className="text-sm text-gray-900">{n.clienteNombre}</p>
-                  </div>
-                  <p className="text-xs text-red-600 font-semibold">Ver →</p>
-                </div>
+          {/* Métricas rápidas (2x2) */}
+          {loadingNotas ? (
+            <div className="grid grid-cols-2 gap-3">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-20 bg-gray-200 rounded-lg animate-pulse"></div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {/* Urgentes */}
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-red-700 font-bold text-xl">{urgentes.length}</p>
+                <p className="text-red-600 text-xs font-medium">Urgentes</p>
               </div>
+
+              {/* Por cobrar */}
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                <p className="text-orange-700 font-bold text-lg">
+                  ${(totalPorCobrar / 1000).toFixed(0)}K
+                </p>
+                <p className="text-orange-600 text-xs font-medium">Cobrar</p>
+              </div>
+
+              {/* Entregas hoy */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-blue-700 font-bold text-xl">{entregasHoy}</p>
+                <p className="text-blue-600 text-xs font-medium">Entregas</p>
+              </div>
+
+              {/* Cobrado hoy */}
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <p className="text-green-700 font-bold text-lg">
+                  ${(cobradoHoy / 1000).toFixed(0)}K
+                </p>
+                <p className="text-green-600 text-xs font-medium">Cobrado</p>
+              </div>
+            </div>
+          )}
+
+          {/* MÓDULOS HUB (grid compacto para móvil) */}
+          <div className="grid grid-cols-2 gap-3">
+            {modulos.map(modulo => (
+              <Link
+                key={modulo.titulo}
+                href={modulo.href}
+                className={`border-2 rounded-lg p-4 cursor-pointer transition-all hover:shadow-md ${modulo.color}`}
+              >
+                <div className="text-3xl mb-1">{modulo.icono}</div>
+                <h3 className="text-sm font-bold text-gray-900">{modulo.titulo}</h3>
+                <p className="text-xs text-gray-600 mt-0.5">{modulo.stats}</p>
+              </Link>
             ))}
           </div>
+
+          {/* Sección urgencias (si hay) */}
+          {urgentes.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <h2 className="text-sm font-bold text-red-900 mb-3">🔴 Atención</h2>
+              <div className="space-y-2">
+                {urgentes.slice(0, 2).map(n => (
+                  <div
+                    key={n.id}
+                    onClick={() => router.push(`/dashboard/notas/${n.id}`)}
+                    className="bg-white p-2 rounded cursor-pointer hover:bg-red-50 transition-colors border border-red-100 text-xs"
+                  >
+                    <p className="font-mono font-bold text-red-600">{n.folio}</p>
+                    <p className="text-gray-700 truncate">{n.clienteNombre}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
