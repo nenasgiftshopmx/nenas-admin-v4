@@ -248,7 +248,7 @@ export default function NotaDetalladaPage() {
                       </span>
                     </div>
                     <p className="text-xs text-gray-600">
-                      {abono.cobradoPorNombre} · {new Date(abono.fecha.seconds * 1000).toLocaleDateString('es-MX')}
+                      {abono.cobradoPorNombre} · {abono.fecha && typeof abono.fecha === 'object' && 'seconds' in abono.fecha ? new Date(abono.fecha.seconds * 1000).toLocaleDateString('es-MX') : 'Sin fecha'}
                     </p>
                     {abono.concepto && (
                       <p className="text-xs text-gray-500 mt-1">{abono.concepto}</p>
