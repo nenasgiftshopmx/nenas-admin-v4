@@ -20,6 +20,7 @@ function ImpresionContent() {
   const [filtroPersona, setFiltroPersona] = useState<string>('todos');
   const [periodoCobros, setPeriodoCobros] = useState<'hoy' | 'semana' | 'mes'>('hoy');
   const [preview, setPreview] = useState(false);
+  const [tipoNota, setTipoNota] = useState<'sencilla' | 'detallada'>('sencilla');
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/');
@@ -167,7 +168,27 @@ function ImpresionContent() {
           </div>
         )}
 
-        {(tipo === 'trabajos_dia' || tipo === 'calendario_semana') && personas.length > 0 && (
+        {tipo === 'nota' && notaSeleccionada && (
+          <div className="bg-white rounded-2xl border-2 border-gray-100 p-4">
+            <p className="text-sm font-bold text-gray-600 mb-3">Formato de nota</p>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setTipoNota('sencilla')} 
+                className={`flex-1 py-2 px-4 rounded-lg text-sm font-bold ${tipoNota === 'sencilla' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+              >
+                📄 Sencilla
+              </button>
+              <button 
+                onClick={() => setTipoNota('detallada')} 
+                className={`flex-1 py-2 px-4 rounded-lg text-sm font-bold ${tipoNota === 'detallada' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+              >
+                ✨ Detallada
+              </button>
+            </div>
+          </div>
+        )}
+
+        {tipo === 'nota' && notaSeleccionada && (
           <div className="bg-white rounded-2xl border-2 border-gray-100 p-4">
             <p className="text-sm font-bold text-gray-600 mb-3">Filtrar por persona</p>
             <div className="flex gap-2 flex-wrap">
@@ -199,7 +220,7 @@ function ImpresionContent() {
       {preview && (
         <div className="print-area max-w-2xl mx-auto px-4 pb-8">
 
-          {tipo === 'nota' && notaImprimir && (
+          {tipo === 'nota' && notaImprimir && tipoNota === 'sencilla' && (
             <div className="bg-white rounded-2xl border-2 border-gray-200 p-8 font-sans">
               <div className="flex items-start justify-between mb-6 pb-6 border-b-2 border-gray-200">
                 <div><div className="text-3xl mb-1">🎀</div><h1 className="text-2xl font-extrabold text-gray-800">Nenas Gift Shop</h1><p className="text-gray-500 text-sm">Sistema de Administración</p></div>
@@ -256,7 +277,47 @@ function ImpresionContent() {
             </div>
           )}
 
-          {tipo === 'trabajos_dia' && (
+          {tipo === 'nota' && notaImprimir && tipoNota === 'detallada' && (
+            <div className="bg-white rounded-xl border-2 border-gray-200 p-8 font-sans">
+              {/* HEADER */}
+              <div className="grid grid-cols-3 gap-6 mb-8 pb-6 border-b-2 border-gray-300">
+                <div><div className="text-5xl mb-2">🎀</div><h1 className="text-2xl font-black text-gray-900">Nenas Gift Shop</h1><p className="text-xs text-gray-600 font-bold mt-1">Tienda de Regalos & Accesorios</p></div>
+                <div className="text-center"><p className="text-xs font-bold text-gray-500 mb-1">FOLIO</p><p className="text-4xl font-black text-pink-600">{notaImprimir.folio}</p><p className="text-xs text-gray-500 mt-2">{notaImprimir.fechaCreacion && typeof notaImprimir.fechaCreacion === 'object' && 'seconds' in notaImprimir.fechaCreacion ? new Date(notaImprimir.fechaCreacion.seconds * 1000).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : formatFecha(hoy)}</p></div>
+                <div className="text-right"><p className="text-xs font-bold text-gray-500 mb-2">CONTACTO</p><p className="text-sm font-bold text-gray-800">📱 +52 (869)</p><p className="text-xs text-gray-600">📍 Matamoros, Tam.</p></div>
+              </div>
+
+              {/* CLIENTE + EVENTO */}
+              <div className="grid grid-cols-2 gap-6 mb-6">
+                <div className="bg-pink-50 rounded-lg p-4 border border-pink-200"><p className="text-xs font-bold text-gray-600 mb-1">CLIENTE</p><p className="text-lg font-black text-gray-900">{notaImprimir.clienteNombre}</p>{notaImprimir.clienteTelefono && <p className="text-sm text-gray-700 mt-2">📞 {notaImprimir.clienteTelefono}</p>}</div>
+                {notaImprimir.evento ? <div className="bg-blue-50 rounded-lg p-4 border border-blue-200"><p className="text-xs font-bold text-gray-600 mb-1">🎉 EVENTO</p><p className="text-lg font-black text-gray-900">{notaImprimir.evento}</p></div> : <div className="bg-green-50 rounded-lg p-4 border border-green-200"><p className="text-xs font-bold text-gray-600 mb-1">✓ ESTADO</p><p className="text-lg font-black text-green-700">Pedido Regular</p></div>}
+              </div>
+
+              {/* TABLA PREMIUM */}
+              <div className="mb-6">
+                <p className="text-xs font-bold text-gray-600 mb-2">PRODUCTOS</p>
+                <table className="w-full text-sm">
+                  <thead><tr className="bg-gradient-to-r from-purple-600 to-pink-600 text-white"><th className="text-left py-2 px-3">PRODUCTO</th><th className="text-center py-2 px-2">CANT.</th><th className="text-right py-2 px-3">PRECIO</th><th className="text-right py-2 px-3">TOTAL</th><th className="text-center py-2 px-2">ENTREGA</th></tr></thead>
+                  <tbody>{notaImprimir.trabajos.map((t, idx) => <tr key={idx} className={`border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}><td className="py-2 px-3 font-semibold text-gray-900">{t.producto}</td><td className="py-2 px-2 text-center font-bold text-gray-700">{t.cantidad}</td><td className="py-2 px-3 text-right text-gray-700">${t.precioUnitario.toLocaleString('es-MX')}</td><td className="py-2 px-3 text-right font-bold text-gray-900">${t.subtotal.toLocaleString('es-MX')}</td><td className="py-2 px-2 text-center text-xs bg-purple-500 text-white rounded font-bold">{t.fechaEntrega.dia}/{t.fechaEntrega.mes}</td></tr>)}</tbody>
+                </table>
+              </div>
+
+              {/* RESUMEN */}
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-gray-100 rounded-lg p-4"><div className="flex justify-between mb-2"><span className="text-sm text-gray-700">Subtotal:</span><span className="font-bold text-gray-900">${notaImprimir.total.toLocaleString('es-MX')}</span></div>{notaImprimir.abonos && notaImprimir.abonos.length > 0 && <div className="border-t pt-2"><p className="text-xs font-bold text-green-600 mb-1">Abonos:</p>{notaImprimir.abonos.map((a, i) => <div key={i} className="flex justify-between text-xs"><span className="text-gray-600">{a.concepto}:</span><span className="text-green-600 font-bold">-${a.monto.toLocaleString('es-MX')}</span></div>)}</div>}</div>
+                <div className="bg-red-50 rounded-lg p-4 border-2 border-red-300 flex flex-col justify-center"><p className="text-xs font-bold text-gray-600 mb-1">SALDO</p><p className="text-3xl font-black text-red-600">${Math.max(0, notaImprimir.total - (notaImprimir.abonos?.reduce((s, a) => s + a.monto, 0) ?? 0)).toLocaleString('es-MX')}</p><p className="text-xs text-red-700 font-semibold">{Math.max(0, notaImprimir.total - (notaImprimir.abonos?.reduce((s, a) => s + a.monto, 0) ?? 0)) > 0 ? 'Pendiente de pago' : 'Pagado'}</p></div>
+              </div>
+
+              {notaImprimir.notas && <div className="bg-blue-50 rounded-lg p-3 border-l-4 border-blue-500 mb-4"><p className="text-xs font-bold text-blue-700">NOTAS:</p><p className="text-sm text-blue-900">{notaImprimir.notas}</p></div>}
+
+              {/* TÉRMINOS */}
+              <div className="bg-gray-100 rounded-lg p-3 mb-4 text-xs text-gray-700"><p className="font-bold mb-1">TÉRMINOS:</p><div className="grid grid-cols-2 gap-1"><div>✓ Entrega en fecha acordada</div><div>✓ Cambios en 48h</div><div>✓ Personalizado NO es reembolsable</div><div>✓ Efectivo, transferencia o tarjeta</div></div></div>
+
+              {/* FIRMA */}
+              <div className="grid grid-cols-2 gap-6 py-4 border-t-2 border-gray-300"><div className="text-center"><div className="h-16 border-t-2 border-gray-400 mb-1"></div><p className="text-xs font-bold text-gray-700">Firma Cliente</p></div><div className="text-center"><div className="h-16 border-t-2 border-gray-400 mb-1"></div><p className="text-xs font-bold text-gray-700">Atendida por: {notaImprimir.asignadaNombre || '-'}</p></div></div>
+
+              <div className="text-center text-xs text-gray-500 mt-4"><p className="font-bold">Nenas Gift Shop 🎀</p><p>Matamoros, Tamaulipas · México</p></div>
+            </div>
+          )}
             <div className="bg-white rounded-2xl border-2 border-gray-200 p-8">
               <div className="flex items-start justify-between mb-6 pb-4 border-b-2 border-gray-200">
                 <div><div className="text-2xl mb-1">🎀</div><h1 className="text-xl font-extrabold text-gray-800">Nenas Gift Shop</h1></div>
