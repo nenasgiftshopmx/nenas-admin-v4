@@ -38,7 +38,12 @@ export default function DashboardPage() {
   const finSemana = new Date(hoy); finSemana.setDate(hoy.getDate()+7);
   const entregasHoy = notasActivas.filter(n => n.trabajos.some(t => { if(t.entregado) return false; const f=new Date(parseInt(t.fechaEntrega.anio),parseInt(t.fechaEntrega.mes)-1,parseInt(t.fechaEntrega.dia)); return f.getTime()===hoy.getTime(); })).length;
   const entregasSemana = notasActivas.filter(n => n.trabajos.some(t => { if(t.entregado) return false; const f=new Date(parseInt(t.fechaEntrega.anio),parseInt(t.fechaEntrega.mes)-1,parseInt(t.fechaEntrega.dia)); return f>=hoy&&f<=finSemana; })).length;
-  const cobradoHoy = notas.reduce((sum,n) => sum+(n.abonos?.filter(a => { const f=new Date(a.fecha.seconds*1000); f.setHours(0,0,0,0); return f.getTime()===hoy.getTime(); }).reduce((s,a)=>s+a.monto,0)??0), 0);
+  const cobradoHoy = notas.reduce((sum,n) => sum+(n.abonos?.filter(a => { 
+    if (!a.fecha || typeof a.fecha !== 'object' || !('seconds' in a.fecha)) return false;
+    const f=new Date(a.fecha.seconds*1000); 
+    f.setHours(0,0,0,0); 
+    return f.getTime()===hoy.getTime(); 
+  }).reduce((s,a)=>s+a.monto,0)??0), 0);
   const clientesUnicos = new Set(notas.map(n => n.clienteNombre.toLowerCase().trim())).size;
   const fechaHoy = hoy.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'});
 
@@ -53,7 +58,7 @@ export default function DashboardPage() {
     { icon: '📅', label: 'Calendario', ruta: '/dashboard/calendario',                color: 'text-indigo-600', badge: entregasHoy > 0 ? entregasHoy : null, badgeColor: 'bg-blue-500' },
     { icon: '📊', label: 'Reportes',   ruta: esAdmin ? '/dashboard/reportes' : null, color: esAdmin ? 'text-green-600' : 'text-gray-300', badge: null, bloqueado: !esAdmin },
     { icon: '🖨️', label: 'Imprimir',  ruta: '/dashboard/impresion',                 color: 'text-pink-600',   badge: null },
-    { icon: '🎁', label: 'Productos',  ruta: null,                                   color: 'text-gray-400',   badge: null, proximamente: true },
+    { icon: '🎁', label: 'Productos',  ruta: '/dashboard/productos',                color: 'text-green-600',   badge: null },
   ];
 
   return (
