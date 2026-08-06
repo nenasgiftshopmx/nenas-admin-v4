@@ -318,6 +318,8 @@ function ImpresionContent() {
               <div className="text-center text-xs text-gray-500 mt-4"><p className="font-bold">Nenas Gift Shop 🎀</p><p>Matamoros, Tamaulipas · México</p></div>
             </div>
           )}
+
+          {tipo === 'trabajos_dia' && (
             <div className="bg-white rounded-2xl border-2 border-gray-200 p-8">
               <div className="flex items-start justify-between mb-6 pb-4 border-b-2 border-gray-200">
                 <div><div className="text-2xl mb-1">🎀</div><h1 className="text-xl font-extrabold text-gray-800">Nenas Gift Shop</h1></div>
