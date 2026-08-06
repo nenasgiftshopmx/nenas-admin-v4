@@ -97,8 +97,12 @@ export default function ClientesPage() {
         notas: formData.notas.trim() || undefined,
         totalVisitas: editando?.totalVisitas || 0,
         totalGastado: editando?.totalGastado || 0,
-        ultimaVisita: editando?.ultimaVisita,
       };
+
+      // Solo agregar ultimaVisita si existe
+      if (editando?.ultimaVisita) {
+        (clienteData as any).ultimaVisita = editando.ultimaVisita;
+      }
 
       if (editando?.id) {
         await updateCliente(editando.id, clienteData);
