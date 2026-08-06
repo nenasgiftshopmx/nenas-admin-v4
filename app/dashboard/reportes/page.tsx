@@ -95,19 +95,26 @@ export default function ReportesPage() {
     return inicioMes;
   };
 
-  const abonosPeriodo = notas.flatMap(n => (n.abonos ?? []).filter(a => a.fecha && typeof a.fecha === 'object' && 'seconds' in a.fecha).map(a => ({ ...a, nota: n })))
+  const abonosPeriodo = notas.flatMap(n => (n.abonos ?? []).map(a => ({ ...a, nota: n })))
     .filter(a => { 
       try {
-        const f = new Date(a.fecha.seconds * 1000); 
-        f.setHours(0,0,0,0); 
-        return f >= getPeriodoInicio();
+        // Si fecha es null, tratarla como "hoy"
+        const f = a.fecha && typeof a.fecha === 'object' && 'seconds' in a.fecha 
+          ? new Date(a.fecha.seconds * 1000)
+          : hoy;
+        const fCopia = new Date(f);
+        fCopia.setHours(0,0,0,0); 
+        return fCopia >= getPeriodoInicio();
       } catch {
-        return false;
+        // Si hay error, asumir que es de hoy
+        return hoy >= getPeriodoInicio();
       }
     })
     .sort((a, b) => {
       try {
-        return b.fecha.seconds - a.fecha.seconds;
+        const aSeconds = a.fecha && typeof a.fecha === 'object' && 'seconds' in a.fecha ? a.fecha.seconds : Math.floor(hoy.getTime() / 1000);
+        const bSeconds = b.fecha && typeof b.fecha === 'object' && 'seconds' in b.fecha ? b.fecha.seconds : Math.floor(hoy.getTime() / 1000);
+        return bSeconds - aSeconds;
       } catch {
         return 0;
       }

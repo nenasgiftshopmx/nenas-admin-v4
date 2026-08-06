@@ -39,10 +39,18 @@ export default function DashboardPage() {
   const entregasHoy = notasActivas.filter(n => n.trabajos.some(t => { if(t.entregado) return false; const f=new Date(parseInt(t.fechaEntrega.anio),parseInt(t.fechaEntrega.mes)-1,parseInt(t.fechaEntrega.dia)); return f.getTime()===hoy.getTime(); })).length;
   const entregasSemana = notasActivas.filter(n => n.trabajos.some(t => { if(t.entregado) return false; const f=new Date(parseInt(t.fechaEntrega.anio),parseInt(t.fechaEntrega.mes)-1,parseInt(t.fechaEntrega.dia)); return f>=hoy&&f<=finSemana; })).length;
   const cobradoHoy = notas.reduce((sum,n) => sum+(n.abonos?.filter(a => { 
-    if (!a.fecha || typeof a.fecha !== 'object' || !('seconds' in a.fecha)) return false;
-    const f=new Date(a.fecha.seconds*1000); 
-    f.setHours(0,0,0,0); 
-    return f.getTime()===hoy.getTime(); 
+    try {
+      // Si fecha es null, tratarla como "hoy"
+      const f = a.fecha && typeof a.fecha === 'object' && 'seconds' in a.fecha
+        ? new Date(a.fecha.seconds * 1000)
+        : hoy;
+      const fCopia = new Date(f);
+      fCopia.setHours(0,0,0,0); 
+      return fCopia.getTime()===hoy.getTime();
+    } catch {
+      // Si hay error, asumir que es de hoy
+      return true;
+    }
   }).reduce((s,a)=>s+a.monto,0)??0), 0);
   const clientesUnicos = new Set(notas.map(n => n.clienteNombre.toLowerCase().trim())).size;
   const fechaHoy = hoy.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'});
