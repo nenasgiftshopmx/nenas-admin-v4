@@ -95,9 +95,23 @@ export default function ReportesPage() {
     return inicioMes;
   };
 
-  const abonosPeriodo = notas.flatMap(n => (n.abonos ?? []).map(a => ({ ...a, nota: n })))
-    .filter(a => { const f = new Date(a.fecha.seconds * 1000); f.setHours(0,0,0,0); return f >= getPeriodoInicio(); })
-    .sort((a, b) => b.fecha.seconds - a.fecha.seconds);
+  const abonosPeriodo = notas.flatMap(n => (n.abonos ?? []).filter(a => a.fecha && typeof a.fecha === 'object' && 'seconds' in a.fecha).map(a => ({ ...a, nota: n })))
+    .filter(a => { 
+      try {
+        const f = new Date(a.fecha.seconds * 1000); 
+        f.setHours(0,0,0,0); 
+        return f >= getPeriodoInicio();
+      } catch {
+        return false;
+      }
+    })
+    .sort((a, b) => {
+      try {
+        return b.fecha.seconds - a.fecha.seconds;
+      } catch {
+        return 0;
+      }
+    });
 
   const totalCobradoPeriodo = abonosPeriodo.reduce((s, a) => s + a.monto, 0);
 
@@ -106,7 +120,7 @@ export default function ReportesPage() {
     .map(n => ({
       nota: n,
       saldo: n.total - (n.abonos?.reduce((s,a) => s+a.monto,0)??0),
-      diasSinPagar: n.fechaCreacion ? Math.floor((hoy.getTime() - new Date(n.fechaCreacion.seconds*1000).getTime()) / (1000*60*60*24)) : 0,
+      diasSinPagar: n.fechaCreacion && typeof n.fechaCreacion === 'object' && 'seconds' in n.fechaCreacion ? Math.floor((hoy.getTime() - new Date(n.fechaCreacion.seconds*1000).getTime()) / (1000*60*60*24)) : 0,
       todoEntregado: n.trabajos.every(t => t.entregado),
     })).sort((a, b) => b.saldo - a.saldo);
 
@@ -124,8 +138,8 @@ export default function ReportesPage() {
   const equipoOrdenado = Object.values(entregasPorUsuario).sort((a, b) => b.entregados - a.entregados);
 
   const cobrosPorUsuario: Record<string, { nombre: string; total: number; count: number }> = {};
-  notas.flatMap(n => n.abonos ?? []).forEach(a => {
-    if (!cobrosPorUsuario[a.cobradoPor]) cobrosPorUsuario[a.cobradoPor] = { nombre: a.cobradoPorNombre, total: 0, count: 0 };
+  notas.flatMap(n => n.abonos ?? []).filter(a => a && a.cobradoPor).forEach(a => {
+    if (!cobrosPorUsuario[a.cobradoPor]) cobrosPorUsuario[a.cobradoPor] = { nombre: a.cobradoPorNombre || 'Desconocido', total: 0, count: 0 };
     cobrosPorUsuario[a.cobradoPor].total += a.monto;
     cobrosPorUsuario[a.cobradoPor].count++;
   });
@@ -233,7 +247,7 @@ export default function ReportesPage() {
                 <div className="space-y-2">
                   {abonosPeriodo.map((a, idx) => (
                     <button key={idx} onClick={() => router.push(`/dashboard/notas/${a.nota.id}`)} className="w-full flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 hover:bg-purple-50 border border-gray-100">
-                      <div className="text-left"><p className="text-xs font-bold text-pink-600">{a.nota.folio} · {a.nota.clienteNombre}</p><p className="text-xs text-gray-500">{a.cobradoPorNombre} · {a.concepto}</p></div>
+                      <div className="text-left"><p className="text-xs font-bold text-pink-600">{a.nota.folio} · {a.nota.clienteNombre}</p><p className="text-xs text-gray-500">{a.cobradoPorNombre || 'Desconocido'} · {a.concepto}</p></div>
                       <div className="text-right"><p className="font-bold text-green-600">${a.monto.toLocaleString()}</p><p className="text-xs text-gray-400">{a.metodoPago === 'efectivo' ? '💵' : a.metodoPago === 'transferencia' ? '📱' : '💳'} {a.metodoPago}</p></div>
                     </button>
                   ))}
