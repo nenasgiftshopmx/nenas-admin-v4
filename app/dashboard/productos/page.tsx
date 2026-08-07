@@ -170,7 +170,7 @@ export default function ProductosPage() {
       };
 
       if (editando) {
-        await updateProducto(editando?.id || '',  productoData);
+        await updateProducto(editando?.id ?? '', productoData);
         showToast('Producto actualizado', 'success');
       } else {
         await createProducto(productoData);
@@ -370,7 +370,7 @@ export default function ProductosPage() {
                         ✏️ Editar
                       </button>
                       <button
-                        onClick={() => handleEliminar(prod.id)}
+                        onClick={() => handleEliminar(prod.id || '')}
                         className="flex-1 bg-red-50 text-red-600 rounded px-3 py-1 text-sm font-semibold hover:bg-red-100"
                       >
                         🗑️ Eliminar
@@ -569,7 +569,7 @@ export default function ProductosPage() {
                     <>
                       <span className="flex-1 text-sm font-semibold">{cat.nombre}</span>
                       <button onClick={() => setEditandoCategoria(cat)} className="text-blue-600 text-xs">✏️</button>
-                      <button onClick={() => handleEliminarCategoria(cat.id)} className="text-red-600 text-xs">🗑️</button>
+                      <button onClick={() => handleEliminarCategoria(cat.id || '')} className="text-red-600 text-xs">🗑️</button>
                     </>
                   )}
                 </div>
