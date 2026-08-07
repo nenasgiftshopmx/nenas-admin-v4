@@ -512,3 +512,53 @@ export async function contar(coleccion: 'clientes' | 'productos'): Promise<numbe
     return 0;
   }
 }
+
+// ===== CATEGORÍAS =====
+
+export async function getCategorias() {
+  try {
+    const snap = await getDocs(collection(db, 'categorias'));
+    return snap.docs.map(d => ({
+      id: d.id,
+      nombre: d.data().nombre,
+      fechaCreacion: d.data().fechaCreacion,
+    }));
+  } catch (e) {
+    console.error('Error getting categorías:', e);
+    return [];
+  }
+}
+
+export async function addCategoria(nombre: string) {
+  try {
+    const docRef = await addDoc(collection(db, 'categorias'), {
+      nombre,
+      fechaCreacion: new Date(),
+    });
+    return docRef.id;
+  } catch (e) {
+    console.error('Error adding categoría:', e);
+    throw e;
+  }
+}
+
+export async function updateCategoria(id: string, nombre: string) {
+  try {
+    await updateDoc(doc(db, 'categorias', id), {
+      nombre,
+      fechaActualizacion: new Date(),
+    });
+  } catch (e) {
+    console.error('Error updating categoría:', e);
+    throw e;
+  }
+}
+
+export async function deleteCategoria(id: string) {
+  try {
+    await deleteDoc(doc(db, 'categorias', id));
+  } catch (e) {
+    console.error('Error deleting categoría:', e);
+    throw e;
+  }
+}

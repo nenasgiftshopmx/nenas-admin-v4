@@ -12,6 +12,10 @@ import {
   buscarProductos,
   getProductosPorCategoria,
   contar,
+  getCategorias,
+  addCategoria,
+  updateCategoria,
+  deleteCategoria,
 } from '@/lib/firestore';
 import { Producto } from '@/types';
 
@@ -39,6 +43,13 @@ export default function ProductosPage() {
   const [vista, setVista] = useState<'lista' | 'formulario'>('lista');
   const [editando, setEditando] = useState<Producto | null>(null);
   const [productosCount, setProductosCount] = useState(0);
+
+  // MODAL DE CATEGORÍAS
+  const [modalCategorias, setModalCategorias] = useState(false);
+  const [categorias, setCategorias] = useState<any[]>([]);
+  const [nuevaCategoria, setNuevaCategoria] = useState('');
+  const [editandoCategoria, setEditandoCategoria] = useState<any>(null);
+  const [categoriasGuardando, setCategoriasGuardando] = useState(false);
 
   // Estado de errores de validación
   const [errores, setErrores] = useState<{
@@ -73,7 +84,10 @@ export default function ProductosPage() {
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    if (user) cargarProductos();
+    if (user) {
+      cargarProductos();
+      cargarCategorias();
+    }
   }, [user]);
 
   const cargarProductos = async () => {
@@ -90,6 +104,16 @@ export default function ProductosPage() {
     }
   };
 
+  const cargarCategorias = async () => {
+    try {
+      const data = await getCategorias();
+      setCategorias(data);
+    } catch (error) {
+      console.error(error);
+      showToast('Error al cargar categorías', 'error');
+    }
+  };
+
   const productosFiltrados = productos.filter((p) => {
     const matchBusqueda =
       !busqueda.trim() ||
@@ -101,77 +125,14 @@ export default function ProductosPage() {
     return matchBusqueda && matchCategoria;
   });
 
-  // Validar solo campos requeridos
   const validarFormulario = (): boolean => {
     const nuevosErrores: any = {};
-
-    if (!formData.nombre.trim()) {
-      nuevosErrores.nombre = 'El nombre es requerido *';
-    }
-    if (!formData.categoria) {
-      nuevosErrores.categoria = 'Selecciona una categoría *';
-    }
-    if (!formData.precioBase || parseFloat(formData.precioBase) <= 0) {
-      nuevosErrores.precioBase = 'El precio base debe ser mayor a 0 *';
-    }
+    if (!formData.nombre.trim()) nuevosErrores.nombre = 'El nombre es requerido';
+    if (!formData.categoria.trim()) nuevosErrores.categoria = 'La categoría es requerida';
+    if (!formData.precioBase || parseFloat(formData.precioBase) <= 0) nuevosErrores.precioBase = 'El precio debe ser mayor a 0';
 
     setErrores(nuevosErrores);
     return Object.keys(nuevosErrores).length === 0;
-  };
-
-  const handleGuardar = async () => {
-    if (!validarFormulario()) {
-      showToast('⚠️ Por favor completa los campos requeridos (*)', 'error');
-      return;
-    }
-
-    setGuardando(true);
-    try {
-      const productoData: any = {
-        nombre: formData.nombre.trim(),
-        categoria: formData.categoria,
-        precioBase: parseFloat(formData.precioBase),
-        activo: formData.activo,
-        vecesVendido: editando?.vecesVendido || 0,
-      };
-
-      // Solo agregar campos opcionales si tienen valor
-      if (formData.precioDocena && parseFloat(formData.precioDocena) > 0) {
-        productoData.precioDocena = parseFloat(formData.precioDocena);
-      }
-      if (formData.precioMayoreo && parseFloat(formData.precioMayoreo) > 0) {
-        productoData.precioMayoreo = parseFloat(formData.precioMayoreo);
-      }
-      if (formData.cantidadMayoreo && parseInt(formData.cantidadMayoreo) > 0) {
-        productoData.cantidadMayoreo = parseInt(formData.cantidadMayoreo);
-      }
-      if (formData.descripcion.trim()) {
-        productoData.descripcion = formData.descripcion.trim();
-      }
-      if (formData.tiempoPreparacion && parseInt(formData.tiempoPreparacion) > 0) {
-        productoData.tiempoPreparacion = parseInt(formData.tiempoPreparacion);
-      }
-      if (formData.stock && parseInt(formData.stock) >= 0) {
-        productoData.stock = parseInt(formData.stock);
-      }
-
-      if (editando?.id) {
-        await updateProducto(editando.id, productoData);
-        showToast('✅ Producto actualizado correctamente', 'success');
-      } else {
-        await createProducto(productoData);
-        showToast('✅ Producto creado correctamente', 'success');
-      }
-
-      await cargarProductos();
-      setVista('lista');
-      limpiarFormulario();
-    } catch (error) {
-      console.error(error);
-      showToast('❌ Error al guardar producto', 'error');
-    } finally {
-      setGuardando(false);
-    }
   };
 
   const limpiarFormulario = () => {
@@ -187,60 +148,125 @@ export default function ProductosPage() {
       stock: '',
       activo: true,
     });
+    setErrores({});
     setEditando(null);
-    setErrores({});
   };
 
-  const handleEditar = (producto: Producto) => {
-    setFormData({
-      nombre: producto.nombre,
-      categoria: producto.categoria,
-      precioBase: producto.precioBase.toString(),
-      precioDocena: producto.precioDocena?.toString() || '',
-      precioMayoreo: producto.precioMayoreo?.toString() || '',
-      cantidadMayoreo: producto.cantidadMayoreo?.toString() || '',
-      descripcion: producto.descripcion || '',
-      tiempoPreparacion: producto.tiempoPreparacion?.toString() || '',
-      stock: producto.stock?.toString() || '',
-      activo: producto.activo,
-    });
-    setEditando(producto);
-    setErrores({});
-    setVista('formulario');
-  };
+  const handleGuardar = async () => {
+    if (!validarFormulario()) return;
 
-  const handleEliminar = (producto: Producto) => {
-    if (!esAdmin) {
-      showToast('Solo admin puede eliminar productos', 'error');
-      return;
+    setGuardando(true);
+    try {
+      const productoData = {
+        nombre: formData.nombre.trim(),
+        categoria: formData.categoria.trim(),
+        precioBase: parseFloat(formData.precioBase),
+        precioDocena: formData.precioDocena ? parseFloat(formData.precioDocena) : undefined,
+        precioMayoreo: formData.precioMayoreo ? parseFloat(formData.precioMayoreo) : undefined,
+        cantidadMayoreo: formData.cantidadMayoreo ? parseInt(formData.cantidadMayoreo) : undefined,
+        descripcion: formData.descripcion.trim() || undefined,
+        tiempoPreparacion: formData.tiempoPreparacion.trim() || undefined,
+        stock: formData.stock ? parseInt(formData.stock) : undefined,
+        activo: formData.activo,
+      };
+
+      if (editando) {
+        await updateProducto(editando.id, productoData);
+        showToast('Producto actualizado', 'success');
+      } else {
+        await createProducto(productoData);
+        showToast('Producto creado', 'success');
+      }
+
+      limpiarFormulario();
+      setVista('lista');
+      cargarProductos();
+    } catch (error) {
+      showToast('Error al guardar producto', 'error');
+    } finally {
+      setGuardando(false);
     }
+  };
 
+  const handleEliminar = (id: string) => {
     setModalConfirm({
       titulo: 'Eliminar producto',
-      mensaje: `¿Eliminar "${producto.nombre}"? Esta acción no se puede deshacer.`,
+      mensaje: '¿Estás seguro de que deseas eliminar este producto?',
       onConfirm: async () => {
-        setModalConfirm(null);
         try {
-          await deleteProducto(producto.id!);
-          await cargarProductos();
-          showToast(`${producto.nombre} eliminado`, 'success');
+          await deleteProducto(id);
+          showToast('Producto eliminado', 'success');
+          cargarProductos();
         } catch (error) {
-          console.error(error);
           showToast('Error al eliminar producto', 'error');
         }
       },
     });
   };
 
-  if (authLoading || loading)
+  // CRUD CATEGORÍAS
+  const handleAgregarCategoria = async () => {
+    if (!nuevaCategoria.trim()) {
+      showToast('Escribe el nombre de la categoría', 'error');
+      return;
+    }
+    setCategoriasGuardando(true);
+    try {
+      await addCategoria(nuevaCategoria);
+      showToast('Categoría agregada', 'success');
+      setNuevaCategoria('');
+      cargarCategorias();
+    } catch (error) {
+      showToast('Error al agregar categoría', 'error');
+    } finally {
+      setCategoriasGuardando(false);
+    }
+  };
+
+  const handleActualizarCategoria = async () => {
+    if (!editandoCategoria.nombre.trim()) {
+      showToast('Escribe el nombre', 'error');
+      return;
+    }
+    setCategoriasGuardando(true);
+    try {
+      await updateCategoria(editandoCategoria.id, editandoCategoria.nombre);
+      showToast('Categoría actualizada', 'success');
+      setEditandoCategoria(null);
+      cargarCategorias();
+    } catch (error) {
+      showToast('Error al actualizar', 'error');
+    } finally {
+      setCategoriasGuardando(false);
+    }
+  };
+
+  const handleEliminarCategoria = async (id: string) => {
+    setModalConfirm({
+      titulo: 'Eliminar categoría',
+      mensaje: '¿Seguro? Los productos seguirán existiendo.',
+      onConfirm: async () => {
+        try {
+          await deleteCategoria(id);
+          showToast('Categoría eliminada', 'success');
+          cargarCategorias();
+        } catch (error) {
+          showToast('Error al eliminar', 'error');
+        }
+      },
+    });
+  };
+
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <div className="text-center">
-          <div className="text-4xl mb-3 animate-bounce">🎀</div>
+          <div className="w-12 h-12 rounded-full border-4 border-gray-300 border-t-green-600 animate-spin mx-auto mb-3"></div>
           <p className="text-gray-600">Cargando productos...</p>
         </div>
       </div>
     );
+  }
 
   if (!user || !usuarioData) return null;
 
@@ -257,15 +283,25 @@ export default function ProductosPage() {
             </div>
           </div>
           {vista === 'lista' && (
-            <button
-              onClick={() => {
-                limpiarFormulario();
-                setVista('formulario');
-              }}
-              className="bg-green-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600"
-            >
-              ➕ Nuevo Producto
-            </button>
+            <>
+              {esAdmin && (
+                <button
+                  onClick={() => setModalCategorias(true)}
+                  className="bg-purple-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-600 mr-3"
+                >
+                  ⚙️ Categorías
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  limpiarFormulario();
+                  setVista('formulario');
+                }}
+                className="bg-green-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600"
+              >
+                ➕ Nuevo Producto
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -282,17 +318,14 @@ export default function ProductosPage() {
                 onChange={(e) => setBusqueda(e.target.value)}
                 className="w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-green-400 focus:outline-none"
               />
-
               <select
                 value={categoriaFiltro}
                 onChange={(e) => setCategoriaFiltro(e.target.value)}
                 className="w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-green-400 focus:outline-none"
               >
                 <option value="">Todas las categorías</option>
-                {CATEGORIAS_PREDEFINIDAS.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
+                {[...CATEGORIAS_PREDEFINIDAS, ...categorias.map(c => c.nombre)].filter((v, i, a) => a.indexOf(v) === i).map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
             </div>
@@ -301,102 +334,48 @@ export default function ProductosPage() {
             {productosFiltrados.length === 0 ? (
               <div className="bg-white rounded-2xl p-8 text-center border-2 border-gray-100">
                 <div className="text-5xl mb-3">📦</div>
-                <p className="text-gray-600 font-semibold">No hay productos registrados</p>
-                <p className="text-gray-500 text-sm mt-1">
-                  {busqueda || categoriaFiltro
-                    ? 'Intenta con otra búsqueda'
-                    : 'Crea tu primer producto ahora'}
-                </p>
+                <p className="text-gray-600 font-semibold">No hay productos</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {productosFiltrados.map((producto) => (
-                  <div
-                    key={producto.id}
-                    className={`rounded-2xl p-4 border-2 transition-all ${
-                      producto.activo
-                        ? 'bg-white border-gray-100 hover:shadow-md'
-                        : 'bg-gray-50 border-gray-200 opacity-60'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-bold text-lg text-gray-800">{producto.nombre}</h3>
-                          {!producto.activo && (
-                            <span className="text-xs bg-gray-300 text-gray-700 px-2 py-1 rounded-full">
-                              Inactivo
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">{producto.categoria}</p>
+              <div className="grid grid-cols-1 gap-4">
+                {productosFiltrados.map((prod) => (
+                  <div key={prod.id} className="bg-white rounded-lg p-4 border-2 border-gray-100 hover:border-green-300">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 className="font-bold text-lg">{prod.nombre}</h3>
+                        <p className="text-sm text-gray-500">{prod.categoria}</p>
                       </div>
+                      <span className="bg-green-100 text-green-800 text-sm font-bold px-3 py-1 rounded">${prod.precioBase}</span>
                     </div>
-
-                    {producto.descripcion && (
-                      <p className="text-sm text-gray-600 mb-3">{producto.descripcion}</p>
-                    )}
-
-                    {/* Precios */}
-                    <div className="bg-gray-50 rounded-lg p-3 mb-3 space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Precio Base:</span>
-                        <span className="font-bold text-green-600">${(producto.precioBase || 0).toLocaleString()}</span>
-                      </div>
-                      {producto.precioDocena && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Precio x Docena:</span>
-                          <span className="font-bold text-blue-600">${(producto.precioDocena || 0).toLocaleString()}</span>
-                        </div>
-                      )}
-                      {producto.precioMayoreo && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">
-                            Mayoreo ({producto.cantidadMayoreo}+ pzas):
-                          </span>
-                          <span className="font-bold text-purple-600">${(producto.precioMayoreo || 0).toLocaleString()}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Información adicional */}
-                    {(producto.tiempoPreparacion || producto.stock) && (
-                      <div className="flex gap-2 text-xs mb-3">
-                        {producto.tiempoPreparacion && (
-                          <div className="bg-orange-100 text-orange-700 px-2 py-1 rounded">
-                            ⏱️ {producto.tiempoPreparacion} días
-                          </div>
-                        )}
-                        {producto.stock !== undefined && (
-                          <div
-                            className={`px-2 py-1 rounded ${
-                              producto.stock > 5
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-red-100 text-red-700'
-                            }`}
-                          >
-                            📦 {producto.stock} en stock
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Botones */}
+                    {prod.descripcion && <p className="text-sm text-gray-600 mb-2">{prod.descripcion}</p>}
                     <div className="flex gap-2">
                       <button
-                        onClick={() => handleEditar(producto)}
-                        className="flex-1 bg-blue-100 text-blue-600 px-3 py-2 rounded-lg font-semibold hover:bg-blue-200 text-sm"
+                        onClick={() => {
+                          setEditando(prod);
+                          setFormData({
+                            nombre: prod.nombre,
+                            categoria: prod.categoria,
+                            precioBase: prod.precioBase.toString(),
+                            precioDocena: prod.precioDocena?.toString() || '',
+                            precioMayoreo: prod.precioMayoreo?.toString() || '',
+                            cantidadMayoreo: prod.cantidadMayoreo?.toString() || '',
+                            descripcion: prod.descripcion || '',
+                            tiempoPreparacion: prod.tiempoPreparacion || '',
+                            stock: prod.stock?.toString() || '',
+                            activo: prod.activo,
+                          });
+                          setVista('formulario');
+                        }}
+                        className="flex-1 bg-blue-50 text-blue-600 rounded px-3 py-1 text-sm font-semibold hover:bg-blue-100"
                       >
                         ✏️ Editar
                       </button>
-                      {esAdmin && (
-                        <button
-                          onClick={() => handleEliminar(producto)}
-                          className="flex-1 bg-red-100 text-red-600 px-3 py-2 rounded-lg font-semibold hover:bg-red-200 text-sm"
-                        >
-                          🗑️ Eliminar
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleEliminar(prod.id)}
+                        className="flex-1 bg-red-50 text-red-600 rounded px-3 py-1 text-sm font-semibold hover:bg-red-100"
+                      >
+                        🗑️ Eliminar
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -406,205 +385,140 @@ export default function ProductosPage() {
         ) : (
           <>
             {/* Formulario */}
-            <div className="bg-white rounded-2xl p-6 border-2 border-gray-100 max-w-2xl mx-auto">
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">
-                {editando ? '✏️ Editar Producto' : '➕ Nuevo Producto'}
-              </h2>
-              <p className="text-xs text-red-600 mb-6">Los campos marcados con * son requeridos</p>
+            <div className="bg-white rounded-2xl p-6 border-2 border-gray-100 max-w-2xl">
+              <h2 className="text-2xl font-bold mb-6">{editando ? 'Editar Producto' : 'Nuevo Producto'}</h2>
 
               <div className="space-y-4">
-                {/* Nombre */}
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">
-                    Nombre del Producto *
-                  </label>
+                  <label className="block text-sm font-semibold mb-2">Nombre *</label>
                   <input
                     type="text"
                     value={formData.nombre}
-                    onChange={(e) => {
-                      setFormData({ ...formData, nombre: e.target.value });
-                      if (e.target.value.trim()) setErrores({ ...errores, nombre: undefined });
-                    }}
-                    placeholder="Ej: Taza Personalizada"
-                    className={`w-full px-4 py-2 rounded-lg border-2 focus:outline-none ${
-                      errores.nombre
-                        ? 'border-red-500 focus:border-red-600 bg-red-50'
-                        : 'border-gray-200 focus:border-green-400'
-                    }`}
-                  />
-                  {errores.nombre && <p className="text-xs text-red-600 mt-1">⚠️ {errores.nombre}</p>}
-                </div>
-
-                {/* Categoría */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">
-                    Categoría *
-                  </label>
-                  <select
-                    value={formData.categoria}
-                    onChange={(e) => {
-                      setFormData({ ...formData, categoria: e.target.value });
-                      if (e.target.value) setErrores({ ...errores, categoria: undefined });
-                    }}
-                    className={`w-full px-4 py-2 rounded-lg border-2 focus:outline-none ${
-                      errores.categoria
-                        ? 'border-red-500 focus:border-red-600 bg-red-50'
-                        : 'border-gray-200 focus:border-green-400'
-                    }`}
-                  >
-                    <option value="">Selecciona una categoría</option>
-                    {CATEGORIAS_PREDEFINIDAS.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                  {errores.categoria && <p className="text-xs text-red-600 mt-1">⚠️ {errores.categoria}</p>}
-                </div>
-
-                {/* Descripción */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">
-                    Descripción
-                  </label>
-                  <textarea
-                    value={formData.descripcion}
-                    onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-                    placeholder="Detalles del producto..."
-                    rows={2}
+                    onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-green-400 focus:outline-none"
                   />
+                  {errores.nombre && <p className="text-red-600 text-sm mt-1">{errores.nombre}</p>}
                 </div>
 
-                {/* Precios */}
+                <div>
+                  <label className="block text-sm font-semibold mb-2">Categoría *</label>
+                  <select
+                    value={formData.categoria}
+                    onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
+                    className="w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-green-400 focus:outline-none"
+                  >
+                    <option value="">Selecciona una categoría</option>
+                    {[...CATEGORIAS_PREDEFINIDAS, ...categorias.map(c => c.nombre)].filter((v, i, a) => a.indexOf(v) === i).map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                  {errores.categoria && <p className="text-red-600 text-sm mt-1">{errores.categoria}</p>}
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
-                      Precio Base *
-                    </label>
+                    <label className="block text-sm font-semibold mb-2">Precio Base *</label>
                     <input
                       type="number"
-                      value={formData.precioBase}
-                      onChange={(e) => {
-                        setFormData({ ...formData, precioBase: e.target.value });
-                        if (parseFloat(e.target.value) > 0) setErrores({ ...errores, precioBase: undefined });
-                      }}
-                      placeholder="0.00"
                       step="0.01"
-                      className={`w-full px-4 py-2 rounded-lg border-2 focus:outline-none ${
-                        errores.precioBase
-                          ? 'border-red-500 focus:border-red-600 bg-red-50'
-                          : 'border-gray-200 focus:border-green-400'
-                      }`}
+                      value={formData.precioBase}
+                      onChange={(e) => setFormData({ ...formData, precioBase: e.target.value })}
+                      className="w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-green-400 focus:outline-none"
                     />
-                    {errores.precioBase && <p className="text-xs text-red-600 mt-1">⚠️ {errores.precioBase}</p>}
+                    {errores.precioBase && <p className="text-red-600 text-sm mt-1">{errores.precioBase}</p>}
                   </div>
-
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
-                      Precio Docena
-                    </label>
+                    <label className="block text-sm font-semibold mb-2">Precio Docena</label>
                     <input
                       type="number"
+                      step="0.01"
                       value={formData.precioDocena}
                       onChange={(e) => setFormData({ ...formData, precioDocena: e.target.value })}
-                      placeholder="Opcional"
-                      step="0.01"
                       className="w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-green-400 focus:outline-none"
                     />
                   </div>
                 </div>
 
-                {/* Precio Mayoreo */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
-                      Precio Mayoreo
-                    </label>
+                    <label className="block text-sm font-semibold mb-2">Precio Mayoreo</label>
                     <input
                       type="number"
+                      step="0.01"
                       value={formData.precioMayoreo}
                       onChange={(e) => setFormData({ ...formData, precioMayoreo: e.target.value })}
-                      placeholder="Opcional"
-                      step="0.01"
                       className="w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-green-400 focus:outline-none"
                     />
                   </div>
-
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
-                      Cantidad Mínima
-                    </label>
+                    <label className="block text-sm font-semibold mb-2">Cantidad Min. Mayoreo</label>
                     <input
                       type="number"
                       value={formData.cantidadMayoreo}
                       onChange={(e) => setFormData({ ...formData, cantidadMayoreo: e.target.value })}
-                      placeholder="Ej: 50"
                       className="w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-green-400 focus:outline-none"
                     />
                   </div>
                 </div>
 
-                {/* Información Adicional */}
+                <div>
+                  <label className="block text-sm font-semibold mb-2">Descripción</label>
+                  <textarea
+                    value={formData.descripcion}
+                    onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+                    rows={3}
+                    className="w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-green-400 focus:outline-none"
+                  />
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
-                      Tiempo de Preparación (días)
-                    </label>
+                    <label className="block text-sm font-semibold mb-2">Tiempo Preparación</label>
                     <input
-                      type="number"
+                      type="text"
+                      placeholder="ej: 3 días"
                       value={formData.tiempoPreparacion}
                       onChange={(e) => setFormData({ ...formData, tiempoPreparacion: e.target.value })}
-                      placeholder="Ej: 3"
                       className="w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-green-400 focus:outline-none"
                     />
                   </div>
-
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
-                      Stock Disponible
-                    </label>
+                    <label className="block text-sm font-semibold mb-2">Stock</label>
                     <input
                       type="number"
                       value={formData.stock}
                       onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                      placeholder="Opcional"
                       className="w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-green-400 focus:outline-none"
                     />
                   </div>
                 </div>
 
-                {/* Estado */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center">
                   <input
                     type="checkbox"
-                    id="activo"
                     checked={formData.activo}
                     onChange={(e) => setFormData({ ...formData, activo: e.target.checked })}
                     className="w-4 h-4"
                   />
-                  <label htmlFor="activo" className="text-sm font-semibold text-gray-700">
-                    ✅ Producto Activo
-                  </label>
+                  <label className="ml-2 font-semibold">Activo</label>
                 </div>
 
-                {/* Botones */}
                 <div className="flex gap-3 pt-4">
                   <button
                     onClick={handleGuardar}
                     disabled={guardando}
-                    className="flex-1 bg-green-500 text-white px-4 py-3 rounded-lg font-bold hover:bg-green-600 disabled:opacity-50"
+                    className="flex-1 bg-green-500 text-white py-2 rounded-lg font-bold hover:bg-green-600 disabled:opacity-50"
                   >
-                    {guardando ? '💾 Guardando...' : '✅ Guardar'}
+                    {guardando ? 'Guardando...' : 'Guardar'}
                   </button>
                   <button
                     onClick={() => {
-                      setVista('lista');
                       limpiarFormulario();
+                      setVista('lista');
                     }}
-                    className="flex-1 bg-gray-300 text-gray-700 px-4 py-3 rounded-lg font-bold hover:bg-gray-400"
+                    className="flex-1 bg-gray-300 text-gray-900 py-2 rounded-lg font-bold hover:bg-gray-400"
                   >
-                    ❌ Cancelar
+                    Cancelar
                   </button>
                 </div>
               </div>
@@ -613,24 +527,84 @@ export default function ProductosPage() {
         )}
       </div>
 
-      {/* Modal de confirmación */}
+      {/* MODAL CATEGORÍAS */}
+      {modalCategorias && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
+            <h2 className="text-xl font-bold mb-4">⚙️ Gestionar Categorías</h2>
+
+            {/* Agregar nueva */}
+            <div className="mb-4 space-y-2">
+              <input
+                type="text"
+                placeholder="Nueva categoría..."
+                value={nuevaCategoria}
+                onChange={(e) => setNuevaCategoria(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-purple-500"
+              />
+              <button
+                onClick={handleAgregarCategoria}
+                disabled={categoriasGuardando}
+                className="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 font-semibold disabled:opacity-50"
+              >
+                ➕ Agregar
+              </button>
+            </div>
+
+            {/* Lista de categorías */}
+            <div className="space-y-2 max-h-96 overflow-y-auto mb-4">
+              {categorias.map((cat) => (
+                <div key={cat.id} className="flex items-center gap-2 bg-gray-50 p-3 rounded-lg">
+                  {editandoCategoria?.id === cat.id ? (
+                    <>
+                      <input
+                        type="text"
+                        value={editandoCategoria.nombre}
+                        onChange={(e) => setEditandoCategoria({ ...editandoCategoria, nombre: e.target.value })}
+                        className="flex-1 px-2 py-1 border rounded text-sm"
+                      />
+                      <button onClick={handleActualizarCategoria} className="text-green-600 text-sm font-bold">✓</button>
+                      <button onClick={() => setEditandoCategoria(null)} className="text-gray-600 text-sm">✕</button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="flex-1 text-sm font-semibold">{cat.nombre}</span>
+                      <button onClick={() => setEditandoCategoria(cat)} className="text-blue-600 text-xs">✏️</button>
+                      <button onClick={() => handleEliminarCategoria(cat.id)} className="text-red-600 text-xs">🗑️</button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setModalCategorias(false)}
+              className="w-full bg-gray-300 text-gray-900 py-2 rounded-lg hover:bg-gray-400 font-semibold"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CONFIRMACIÓN */}
       {modalConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 max-w-sm mx-4">
-            <h3 className="text-xl font-bold text-gray-800 mb-2">{modalConfirm.titulo}</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
+            <h2 className="text-xl font-bold mb-2">{modalConfirm.titulo}</h2>
             <p className="text-gray-600 mb-6">{modalConfirm.mensaje}</p>
             <div className="flex gap-3">
               <button
-                onClick={() => setModalConfirm(null)}
-                className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-400"
-              >
-                Cancelar
-              </button>
-              <button
                 onClick={modalConfirm.onConfirm}
-                className="flex-1 bg-red-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-600"
+                className="flex-1 bg-red-500 text-white py-2 rounded-lg font-bold hover:bg-red-600"
               >
                 Eliminar
+              </button>
+              <button
+                onClick={() => setModalConfirm(null)}
+                className="flex-1 bg-gray-300 text-gray-900 py-2 rounded-lg font-bold hover:bg-gray-400"
+              >
+                Cancelar
               </button>
             </div>
           </div>
