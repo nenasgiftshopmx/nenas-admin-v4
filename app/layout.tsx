@@ -26,10 +26,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-100 flex items-start justify-center min-h-screen py-4`}>
         <AuthProvider>
           <ToastProvider>
-            {children}
+            {/* Simulador de celular: 390px de ancho */}
+            <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden">
+              {children}
+            </div>
           </ToastProvider>
         </AuthProvider>
       </body>
