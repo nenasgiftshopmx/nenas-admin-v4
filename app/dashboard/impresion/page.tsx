@@ -36,6 +36,121 @@ function ImpresionContent() {
     finally { setLoading(false); }
   };
 
+
+  const imprimirLandscape = () => {
+    if (!notaImprimir) return;
+    const saldo = Math.max(0, notaImprimir.total - (notaImprimir.abonos?.reduce((s, a) => s + a.monto, 0) ?? 0));
+    const fechaStr = notaImprimir.fechaCreacion && typeof notaImprimir.fechaCreacion === 'object' && 'seconds' in notaImprimir.fechaCreacion
+      ? new Date((notaImprimir.fechaCreacion as any).seconds * 1000).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
+      : new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    const notaHTML = (titulo: string) => `
+      <div style="width:48%;padding:10px;box-sizing:border-box;font-family:Arial,sans-serif;font-size:11px;">
+        <div style="text-align:center;background:#7c3aed;color:white;padding:4px 8px;border-radius:4px 4px 0 0;font-weight:bold;font-size:10px;">${titulo}</div>
+        <div style="border:2px solid #7c3aed;border-top:none;border-radius:0 0 4px 4px;padding:8px;">
+          <!-- Header -->
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e5e7eb;">
+            <div>
+              <div style="font-size:16px;">🎀</div>
+              <div style="font-weight:900;font-size:13px;">Nenas Gift Shop</div>
+              <div style="color:#6b7280;font-size:9px;">Matamoros, Tam.</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-weight:900;font-size:18px;color:#db2777;">${notaImprimir.folio}</div>
+              <div style="color:#6b7280;font-size:9px;">${fechaStr}</div>
+            </div>
+          </div>
+          <!-- Cliente -->
+          <div style="background:#fdf2f8;border-radius:4px;padding:6px;margin-bottom:8px;">
+            <div style="font-size:9px;font-weight:bold;color:#6b7280;">CLIENTE</div>
+            <div style="font-weight:900;font-size:12px;">${notaImprimir.clienteNombre}</div>
+            ${notaImprimir.clienteTelefono ? `<div style="color:#374151;font-size:10px;">📞 ${notaImprimir.clienteTelefono}</div>` : ''}
+            ${notaImprimir.evento ? `<div style="color:#6b7280;font-size:9px;">Evento: ${notaImprimir.evento}</div>` : ''}
+          </div>
+          <!-- Tabla trabajos -->
+          <table style="width:100%;border-collapse:collapse;margin-bottom:8px;font-size:10px;">
+            <thead>
+              <tr style="background:#7c3aed;color:white;">
+                <th style="text-align:left;padding:3px 4px;">Producto</th>
+                <th style="text-align:center;padding:3px 2px;">Cant</th>
+                <th style="text-align:right;padding:3px 4px;">Precio</th>
+                <th style="text-align:right;padding:3px 4px;">Total</th>
+                <th style="text-align:center;padding:3px 2px;">Entrega</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${notaImprimir.trabajos.map((t, i) => `
+                <tr style="background:${i % 2 === 0 ? 'white' : '#f9fafb'};border-bottom:1px solid #e5e7eb;">
+                  <td style="padding:3px 4px;font-weight:600;">${t.producto}</td>
+                  <td style="padding:3px 2px;text-align:center;">${t.cantidad}</td>
+                  <td style="padding:3px 4px;text-align:right;">$${t.precioUnitario.toLocaleString('es-MX')}</td>
+                  <td style="padding:3px 4px;text-align:right;font-weight:bold;">$${t.subtotal.toLocaleString('es-MX')}</td>
+                  <td style="padding:3px 2px;text-align:center;">${t.fechaEntrega.dia}/${t.fechaEntrega.mes}/${t.fechaEntrega.anio}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <!-- Totales -->
+          <div style="background:#f3f4f6;border-radius:4px;padding:6px;margin-bottom:8px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+              <span style="color:#374151;">Total pedido:</span>
+              <span style="font-weight:bold;">$${notaImprimir.total.toLocaleString('es-MX')}</span>
+            </div>
+            ${(notaImprimir.abonos ?? []).map(a => `
+              <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                <span style="color:#059669;">Abono (${a.concepto}):</span>
+                <span style="font-weight:bold;color:#059669;">- $${a.monto.toLocaleString('es-MX')}</span>
+              </div>
+            `).join('')}
+            <div style="display:flex;justify-content:space-between;border-top:2px solid #d1d5db;padding-top:4px;margin-top:4px;">
+              <span style="font-weight:900;font-size:12px;">SALDO:</span>
+              <span style="font-weight:900;font-size:14px;color:${saldo > 0 ? '#dc2626' : '#059669'};">$${saldo.toLocaleString('es-MX')}</span>
+            </div>
+          </div>
+          ${notaImprimir.notas ? `<div style="border-left:3px solid #7c3aed;padding:4px 6px;margin-bottom:8px;font-size:9px;color:#374151;"><b>Notas:</b> ${notaImprimir.notas}</div>` : ''}
+          <!-- Firma -->
+          <div style="display:flex;gap:8px;padding-top:8px;border-top:1px solid #e5e7eb;">
+            <div style="flex:1;text-align:center;">
+              <div style="height:32px;border-bottom:1px solid #374151;margin-bottom:3px;"></div>
+              <div style="font-size:9px;font-weight:bold;color:#6b7280;">Firma Cliente</div>
+            </div>
+            <div style="flex:1;text-align:center;">
+              <div style="height:32px;border-bottom:1px solid #374151;margin-bottom:3px;"></div>
+              <div style="font-size:9px;font-weight:bold;color:#6b7280;">Atendida por: ${notaImprimir.asignadaNombre || '-'}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const ventana = window.open('', '_blank');
+    if (!ventana) return;
+    ventana.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${notaImprimir.folio} - Nenas Gift Shop</title>
+        <style>
+          @page { size: letter landscape; margin: 8mm; }
+          @media print { body { margin: 0; } }
+          body { margin: 0; padding: 0; background: white; }
+          .pagina { display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start; width: 100%; box-sizing: border-box; gap: 10px; }
+          .divisor { width: 2px; background: repeating-linear-gradient(to bottom, #9ca3af 0px, #9ca3af 6px, transparent 6px, transparent 12px); align-self: stretch; margin: 10px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="pagina">
+          ${notaHTML('📋 COPIA INTERNA')}
+          <div class="divisor"></div>
+          ${notaHTML('👤 COPIA CLIENTE')}
+        </div>
+      </body>
+      </html>
+    `);
+    ventana.document.close();
+    ventana.onload = () => ventana.print();
+  };
+
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
 
@@ -214,6 +329,12 @@ function ImpresionContent() {
         <div className="flex gap-3">
           <button onClick={() => setPreview(true)} className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200">👁️ Vista previa</button>
           <button onClick={() => { setPreview(true); setTimeout(() => window.print(), 300); }} className="flex-1 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl font-bold hover:from-pink-600 hover:to-purple-700">🖨️ Imprimir / PDF</button>
+        </div>
+        {tipo === 'nota' && notaSeleccionada && (
+          <button onClick={imprimirLandscape} className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-bold hover:from-purple-700 hover:to-indigo-700">
+            📄 Imprimir 2 copias (Carta Horizontal)
+          </button>
+        )}
         </div>
       </div>
 
