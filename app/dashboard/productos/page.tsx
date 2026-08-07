@@ -165,7 +165,6 @@ export default function ProductosPage() {
         precioMayoreo: formData.precioMayoreo ? parseFloat(formData.precioMayoreo) : undefined,
         cantidadMayoreo: formData.cantidadMayoreo ? parseInt(formData.cantidadMayoreo) : undefined,
         descripcion: formData.descripcion.trim() || undefined,
-        tiempoPreparacion: formData.tiempoPreparacion.trim() || undefined,
         stock: formData.stock ? parseInt(formData.stock) : undefined,
         activo: formData.activo,
       };
