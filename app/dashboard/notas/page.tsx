@@ -10,6 +10,7 @@ import {
   calcularEstadoNota, tieneEntregasVencidas, generarFolio,
   getClientes, createCliente, getProductos, createProducto,
   buscarClientes, buscarProductos,
+  subirImagenNota,
 } from '@/lib/firestore';
 import { Nota, Trabajo, Abono, Cliente, Producto } from '@/types';
 
@@ -72,6 +73,10 @@ export default function NotasPage() {
   const [modalAbono, setModalAbono] = useState<{ id: string; clienteNombre: string } | null>(null);
   const [cargandoAbono, setCargandoAbono] = useState(false);
   const [abonoForm, setAbonoForm] = useState({ monto: '', cobradoPor: '', metodoPago: 'efectivo' as 'efectivo' | 'transferencia' | 'tarjeta', concepto: '', notas: '' });
+
+  // IMÁGENES DE REFERENCIA
+  const [imagenesReferencia, setImagenesReferencia] = useState<string[]>([]);
+  const [subiendoImagen, setSubiendoImagen] = useState(false);
 
   useEffect(() => { if (!authLoading && !user) router.push('/'); }, [user, authLoading, router]);
   useEffect(() => { if (user) cargarDatos(); }, [user]);
@@ -240,6 +245,33 @@ export default function NotasPage() {
   const calcularTotal = () => formData.trabajos.reduce((s, t) => s + t.subtotal, 0);
 
   // ===== GUARDAR NOTA =====
+
+  const handleAgregarImagen = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (imagenesReferencia.length >= 2) {
+      showToast('Máximo 2 imágenes por nota', 'error');
+      return;
+    }
+    setSubiendoImagen(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const base64 = ev.target?.result as string;
+        setImagenesReferencia(prev => [...prev, base64]);
+        setSubiendoImagen(false);
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      showToast('Error al cargar imagen', 'error');
+      setSubiendoImagen(false);
+    }
+  };
+
+  const handleEliminarImagen = (index: number) => {
+    setImagenesReferencia(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleGuardar = async () => {
     if (!usuarioData) return;
     if (!formData.clienteNombre) { showToast('El nombre del cliente es requerido', 'error'); return; }
@@ -285,6 +317,7 @@ export default function NotasPage() {
         saldo: total - abonos.reduce((s, a) => s + a.monto, 0),
         archivada: false,
         notas: formData.notas,
+        imagenes: imagenesReferencia,
         evento: formData.evento,
         ultimaModificacion: null as any,
         ultimaModificacionPor: usuarioData.email,
@@ -306,6 +339,7 @@ export default function NotasPage() {
 
   const limpiarFormulario = () => {
     setFormData({ clienteId: '', clienteNombre: '', clienteTelefono: '', evento: '', trabajos: [], abonos: [], notas: '', asignadaA: '', asignadaNombre: '', anticipoMonto: '' });
+    setImagenesReferencia([]);
     setEditando(null);
     setBusquedaCliente('');
     setClientesFiltrados([]);
@@ -729,6 +763,42 @@ export default function NotasPage() {
               <div className="mb-6">
                 <label className="block text-sm font-bold text-gray-700 mb-2">Notas adicionales</label>
                 <textarea value={formData.notas} onChange={(e) => setFormData({ ...formData, notas: e.target.value })} className="w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-purple-400 focus:outline-none" rows={3} placeholder="Detalles, especificaciones..." />
+              </div>
+
+
+              <div className="mb-6">
+                <label className="block text-sm font-bold text-gray-700 mb-2">📷 Imágenes de referencia (máx. 2)</label>
+                <div className="flex gap-3 flex-wrap">
+                  {imagenesReferencia.map((img, idx) => (
+                    <div key={idx} className="relative">
+                      <img src={img} alt={`Referencia ${idx + 1}`} className="w-24 h-24 object-cover rounded-lg border-2 border-purple-200" />
+                      <button
+                        onClick={() => handleEliminarImagen(idx)}
+                        className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs flex items-center justify-center"
+                      >✕</button>
+                    </div>
+                  ))}
+                  {imagenesReferencia.length < 2 && (
+                    <label className="w-24 h-24 border-2 border-dashed border-purple-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-purple-50">
+                      {subiendoImagen ? (
+                        <span className="text-2xl animate-spin">⏳</span>
+                      ) : (
+                        <>
+                          <span className="text-2xl">📷</span>
+                          <span className="text-xs text-gray-500 mt-1">Agregar</span>
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handleAgregarImagen}
+                        className="hidden"
+                        disabled={subiendoImagen}
+                      />
+                    </label>
+                  )}
+                </div>
               </div>
 
               <div className="flex gap-3">

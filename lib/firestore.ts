@@ -6,13 +6,13 @@ import {
   addDoc, 
   updateDoc, 
   deleteDoc, 
-  setDoc,
   query, 
   where, 
   orderBy,
   Timestamp 
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, storage } from './firebase';
+import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storage';
 import { Nota, Trabajo, Abono, Cliente, Producto } from '@/types';
 
 // ==================== NOTAS ====================
@@ -495,33 +495,8 @@ export function tieneEntregasVencidas(nota: Nota): boolean {
   });
 }
 
-export async function generarFolio(): Promise<string> {
-  const configRef = doc(db, 'config', 'folios');
-  const configSnap = await getDoc(configRef);
-
-  let serie = 'A';
-  let consecutivo = 1;
-
-  if (configSnap.exists()) {
-    serie = configSnap.data().serie || 'A';
-    consecutivo = configSnap.data().consecutivo || 1;
-  }
-
-  // Calcular siguiente
-  let nextConsecutivo = consecutivo + 1;
-  let nextSerie = serie;
-
-  if (nextConsecutivo > 100) {
-    nextConsecutivo = 1;
-    nextSerie = String.fromCharCode(serie.charCodeAt(0) + 1);
-  }
-
-  // Guardar el siguiente en Firestore
-  await setDoc(configRef, { serie: nextSerie, consecutivo: nextConsecutivo });
-
-  // Retornar el folio actual (antes de incrementar)
-  const numero = String(consecutivo).padStart(3, '0');
-  return `${serie}-${numero}`;
+export function generarFolio(): string {
+  return 'NV-' + String(Math.floor(Math.random() * 9000) + 1000);
 }
 
 export async function contar(coleccion: 'clientes' | 'productos'): Promise<number> {
@@ -536,6 +511,30 @@ export async function contar(coleccion: 'clientes' | 'productos'): Promise<numbe
   } catch (error) {
     console.error('Error contando:', error);
     return 0;
+  }
+}
+
+
+// ==================== IMÁGENES ====================
+
+export async function subirImagenNota(notaId: string, index: number, base64: string): Promise<string> {
+  try {
+    const storageRef = ref(storage, `notas/${notaId}/imagen_${index}.jpg`);
+    await uploadString(storageRef, base64, 'data_url');
+    const url = await getDownloadURL(storageRef);
+    return url;
+  } catch (e) {
+    console.error('Error subiendo imagen:', e);
+    throw e;
+  }
+}
+
+export async function eliminarImagenNota(notaId: string, index: number): Promise<void> {
+  try {
+    const storageRef = ref(storage, `notas/${notaId}/imagen_${index}.jpg`);
+    await deleteObject(storageRef);
+  } catch (e) {
+    console.error('Error eliminando imagen:', e);
   }
 }
 

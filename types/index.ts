@@ -1,135 +1,111 @@
 // ==================== SISTEMA OPTIMIZADO - TYPES ====================
 
-// ==================== TRABAJO/PRODUCTO EN UNA NOTA ====================
 export interface Trabajo {
-  id: string; // ID único del trabajo
-  producto: string; // Nombre del producto
+  id: string;
+  producto: string;
   cantidad: number;
   precioUnitario: number;
   subtotal: number;
-  detalles?: string; // Especificaciones
-  fotos?: string[]; // URLs de Cloudinary
-  
-  // Entrega de este trabajo específico
+  detalles?: string;
+  fotos?: string[];
   fechaEntrega: {
     dia: string;
     mes: string;
     anio: string;
-    hora?: string; // Opcional: "10:00 AM", "Tarde", etc
+    hora?: string;
   };
-  
-  // Estado de entrega de este trabajo
   entregado: boolean;
-  entregadoPor?: string; // Email
+  entregadoPor?: string;
   entregadoPorNombre?: string;
-  entregadoA?: string; // Quien recibió
-  fechaEntregaReal?: any; // Timestamp
+  entregadoA?: string;
+  fechaEntregaReal?: any;
 }
 
-// ==================== ABONO/PAGO ====================
 export interface Abono {
   id: string;
   monto: number;
-  fecha: any; // Timestamp
-  cobradoPor: string; // Email
+  fecha: any;
+  cobradoPor: string;
   cobradoPorNombre: string;
   metodoPago: 'efectivo' | 'transferencia' | 'tarjeta';
-  concepto: string; // "Anticipo", "Abono parcial", "Liquidación"
+  concepto: string;
   notas?: string;
 }
 
-// ==================== NOTA (PEDIDO COMPLETO) ====================
 export interface Nota {
   id?: string;
-  folio: string; // NV-XXXX
-  
+  folio: string;
+
   // CLIENTE
-  clienteId?: string; // Referencia al cliente
+  clienteId?: string;
   clienteNombre: string;
   clienteTelefono: string;
-  visitaNumero?: number; // Cuántas veces ha venido este cliente
-  
+  visitaNumero?: number;
+
+  // IMÁGENES DE REFERENCIA ← NUEVO
+  imagenes?: string[]; // URLs de Firebase Storage (máx 2)
+
   // METADATA
-  fechaCreacion: any; // Timestamp
-  creadoPor: string; // Email
+  fechaCreacion: any;
+  creadoPor: string;
   creadoPorNombre: string;
-  
+
   // ASIGNACIÓN
-  asignadaA?: string; // Email (Tere/Cinthia/Vero)
+  asignadaA?: string;
   asignadaNombre?: string;
-  
-  // TRABAJOS (1 a N trabajos en esta visita)
+
+  // TRABAJOS
   trabajos: Trabajo[];
-  
+
   // FINANCIERO
-  total: number; // Calculado automáticamente
-  abonos: Abono[]; // Timeline de pagos
-  totalAbonado: number; // Calculado
-  saldo: number; // Calculado
-  
-  // ESTADOS CALCULADOS (no se guardan, se calculan en tiempo real)
-  // estadoEntregas: 'pendiente' | 'parcial' | 'completa'
-  // estadoPagos: 'sin_pagar' | 'abonos' | 'liquidada'
-  // estadoGeneral: 'nueva' | 'en_proceso' | 'urgente' | 'completada'
-  
+  total: number;
+  abonos: Abono[];
+  totalAbonado: number;
+  saldo: number;
+
   // ARCHIVO
   archivada: boolean;
   fechaArchivo?: any;
-  
+
   // NOTAS ADICIONALES
   notas?: string;
-  evento?: string; // "Cumpleaños", "Boda", etc
-  
+  evento?: string;
+
   // AUDITORÍA
   ultimaModificacion: any;
   ultimaModificacionPor: string;
   ultimaModificacionNombre: string;
 }
 
-// ==================== CLIENTE ====================
 export interface Cliente {
   id?: string;
   nombre: string;
   telefono: string;
   email?: string;
-  
-  // Estadísticas
-  totalVisitas: number; // Cuántas notas tiene
+  totalVisitas: number;
   totalGastado: number;
-  ultimaVisita?: any; // Timestamp
-  
-  // Preferencias (opcional)
-  ocasionesRecurrentes?: string[]; // ["Cumpleaños hijo", "Aniversario"]
+  ultimaVisita?: any;
+  ocasionesRecurrentes?: string[];
   notas?: string;
-  
   createdAt?: any;
 }
 
-// ==================== PRODUCTO (CATÁLOGO) ====================
 export interface Producto {
   id?: string;
   nombre: string;
   categoria: string;
-  
-  // Precios
   precioBase: number;
   precioDocena?: number;
   precioMayoreo?: number;
   cantidadMayoreo?: number;
-  
-  // Info
   descripcion?: string;
-  tiempoPreparacion?: number; // días
+  tiempoPreparacion?: number;
   stock?: number;
   activo: boolean;
-  
-  // Estadísticas
   vecesVendido?: number;
-  
   createdAt?: any;
 }
 
-// ==================== AUDITORÍA ====================
 export interface AuditLog {
   id?: string;
   notaId: string;
@@ -146,28 +122,23 @@ export interface AuditLog {
   }[];
 }
 
-// ==================== USUARIO ====================
 export interface Usuario {
   uid: string;
   email: string;
   nombre: string;
   rol: 'admin' | 'colaboradora' | 'solo_lectura';
-  color: string; // Para calendario
+  color: string;
   activo: boolean;
 }
 
-// ==================== TIPOS AUXILIARES ====================
+export type EstadoNota =
+  | 'nueva'
+  | 'en_proceso'
+  | 'parcial'
+  | 'por_cobrar'
+  | 'completada'
+  | 'urgente';
 
-// Para el dashboard y filtros
-export type EstadoNota = 
-  | 'nueva'           // Recién creada
-  | 'en_proceso'      // Tiene trabajos pendientes
-  | 'parcial'         // Algunos trabajos entregados
-  | 'por_cobrar'      // Todo entregado pero falta pago
-  | 'completada'      // Todo entregado y pagado
-  | 'urgente';        // Tiene entregas vencidas
-
-// Para reportes
 export interface ReporteVentas {
   periodo: string;
   totalVentas: number;
