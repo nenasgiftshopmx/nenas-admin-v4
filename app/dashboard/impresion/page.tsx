@@ -109,7 +109,7 @@ function ImpresionContent() {
           </div>
           ${notaImprimir.notas ? `<div style="border-left:3px solid #7c3aed;padding:4px 6px;margin-bottom:8px;font-size:9px;color:#374151;"><b>Notas:</b> ${notaImprimir.notas}</div>` : ''}
           <!-- Firma -->
-          <div style="display:flex;gap:8px;padding-top:8px;border-top:1px solid #e5e7eb;">
+          <div style="display:flex;gap:8px;padding-top:8px;border-top:1px solid #e5e7eb;margin-bottom:8px;">
             <div style="flex:1;text-align:center;">
               <div style="height:32px;border-bottom:1px solid #374151;margin-bottom:3px;"></div>
               <div style="font-size:9px;font-weight:bold;color:#6b7280;">Firma Cliente</div>
@@ -119,6 +119,17 @@ function ImpresionContent() {
               <div style="font-size:9px;font-weight:bold;color:#6b7280;">Atendida por: ${notaImprimir.asignadaNombre || '-'}</div>
             </div>
           </div>
+          <!-- Imágenes de referencia -->
+          ${(notaImprimir.imagenes && notaImprimir.imagenes.length > 0) ? `
+            <div style="border-top:1px dashed #d1d5db;padding-top:6px;">
+              <div style="font-size:9px;font-weight:bold;color:#6b7280;margin-bottom:4px;">📷 IMÁGENES DE REFERENCIA</div>
+              <div style="display:flex;gap:6px;">
+                ${notaImprimir.imagenes.map((img: string) => `
+                  <img src="${img}" style="width:80px;height:80px;object-fit:cover;border-radius:4px;border:1px solid #e5e7eb;" />
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
         </div>
       </div>
     `;
