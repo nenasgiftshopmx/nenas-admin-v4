@@ -335,7 +335,6 @@ function ImpresionContent() {
             📄 Imprimir 2 copias (Carta Horizontal)
           </button>
         )}
-        </div>
       </div>
 
       {preview && (
