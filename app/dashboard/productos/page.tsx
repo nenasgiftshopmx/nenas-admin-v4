@@ -171,7 +171,7 @@ export default function ProductosPage() {
       };
 
       if (editando) {
-        await updateProducto(editando.id, productoData);
+        await updateProducto(editando?.id || '',  productoData);
         showToast('Producto actualizado', 'success');
       } else {
         await createProducto(productoData);
