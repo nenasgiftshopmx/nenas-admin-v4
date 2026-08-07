@@ -459,7 +459,7 @@ export function calcularEstadoNota(nota: Nota): {
   else if (trabajosEntregados > 0) estadoEntregas = 'parcial';
   
   let estadoPagos: 'sin_pagar' | 'abonos' | 'liquidada' = 'sin_pagar';
-  if (nota.saldo === 0) estadoPagos = 'liquidada';
+  if (nota.saldo <= 0) estadoPagos = 'liquidada';
   else if (nota.totalAbonado > 0) estadoPagos = 'abonos';
   
   let estadoGeneral: 'nueva' | 'en_proceso' | 'urgente' | 'por_cobrar' | 'completada' = 'nueva';
