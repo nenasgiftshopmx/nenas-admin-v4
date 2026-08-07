@@ -249,9 +249,12 @@ export default function ProductosPage() {
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">🎁 Catálogo de Productos</h1>
-            <p className="text-sm text-gray-500 mt-1">{productosCount} producto(s) registrado(s)</p>
+          <div className="flex items-center gap-3">
+            <button onClick={() => router.push('/dashboard')} className="text-2xl hover:scale-110 transition-transform">←</button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">🎁 Catálogo de Productos</h1>
+              <p className="text-sm text-gray-500 mt-1">{productosCount} producto(s) registrado(s)</p>
+            </div>
           </div>
           {vista === 'lista' && (
             <button
