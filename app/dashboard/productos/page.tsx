@@ -359,7 +359,7 @@ export default function ProductosPage() {
                             precioMayoreo: prod.precioMayoreo?.toString() || '',
                             cantidadMayoreo: prod.cantidadMayoreo?.toString() || '',
                             descripcion: prod.descripcion || '',
-                            tiempoPreparacion: prod.tiempoPreparacion || '',
+                            tiempoPreparacion: prod.tiempoPreparacion?.toString() || '',
                             stock: prod.stock?.toString() || '',
                             activo: prod.activo,
                           });
