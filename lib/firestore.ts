@@ -6,6 +6,7 @@ import {
   addDoc, 
   updateDoc, 
   deleteDoc, 
+  setDoc,
   query, 
   where, 
   orderBy,
@@ -494,8 +495,33 @@ export function tieneEntregasVencidas(nota: Nota): boolean {
   });
 }
 
-export function generarFolio(): string {
-  return 'NV-' + String(Math.floor(Math.random() * 9000) + 1000);
+export async function generarFolio(): Promise<string> {
+  const configRef = doc(db, 'config', 'folios');
+  const configSnap = await getDoc(configRef);
+
+  let serie = 'A';
+  let consecutivo = 1;
+
+  if (configSnap.exists()) {
+    serie = configSnap.data().serie || 'A';
+    consecutivo = configSnap.data().consecutivo || 1;
+  }
+
+  // Calcular siguiente
+  let nextConsecutivo = consecutivo + 1;
+  let nextSerie = serie;
+
+  if (nextConsecutivo > 100) {
+    nextConsecutivo = 1;
+    nextSerie = String.fromCharCode(serie.charCodeAt(0) + 1);
+  }
+
+  // Guardar el siguiente en Firestore
+  await setDoc(configRef, { serie: nextSerie, consecutivo: nextConsecutivo });
+
+  // Retornar el folio actual (antes de incrementar)
+  const numero = String(consecutivo).padStart(3, '0');
+  return `${serie}-${numero}`;
 }
 
 export async function contar(coleccion: 'clientes' | 'productos'): Promise<number> {
