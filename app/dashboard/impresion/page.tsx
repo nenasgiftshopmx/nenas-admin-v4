@@ -125,7 +125,7 @@ function ImpresionContent() {
               <div style="font-size:9px;font-weight:bold;color:#6b7280;margin-bottom:4px;">📷 IMÁGENES DE REFERENCIA</div>
               <div style="display:flex;gap:8px;width:100%;">
                 ${notaImprimir.imagenes.map((img: string) => `
-                  <img src="${img}" style="flex:1;width:48%;height:150px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;" />
+                  <img src="${img}" style="flex:1;width:48%;max-height:200px;object-fit:contain;border-radius:6px;border:1px solid #e5e7eb;background:#f9fafb;" />
                 `).join('')}
               </div>
             </div>
