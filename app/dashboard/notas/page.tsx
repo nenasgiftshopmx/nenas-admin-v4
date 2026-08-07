@@ -269,7 +269,7 @@ export default function NotasPage() {
       }
       
       const notaData: Omit<Nota, 'id'> = {
-        folio: editando?.folio || generarFolio(),
+        folio: editando?.folio || await generarFolio(),
         clienteId: formData.clienteId || undefined,
         clienteNombre: formData.clienteNombre,
         clienteTelefono: formData.clienteTelefono,
